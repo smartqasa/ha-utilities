@@ -8,7 +8,9 @@ import voluptuous as vol
 DOMAIN = "scene_capture"
 SERVICE_CAPTURE = "capture"
 SERVICE_SCHEMA = vol.Schema({
-    vol.Required("entity_id"): cv.entity_id
+    vol.Required("target"): vol.Schema({
+        vol.Required("entity_id"): cv.entity_id
+    })
 }, extra=vol.REMOVE_EXTRA)
 
 CONFIG_SCHEMA = vol.Schema({
@@ -30,18 +32,21 @@ async def async_setup(hass: HomeAssistant, config: Config) -> bool:
 
     async def handle_capture(call: ServiceCall) -> None:
         """Handle the capture service call."""
-        entity_id = call.data.get("entity_id")
+        # Log the raw data for debugging
+        _LOGGER.debug(f"Scene Capture: Received service call data: {call.data}")
+
+        entity_id = call.data.get("target", {}).get("entity_id")
         if not entity_id or not isinstance(entity_id, str):
-            _LOGGER.error("Scene Capture: No valid entity_id provided")
+            _LOGGER.error(f"Scene Capture: Invalid or missing entity_id in target, received: {entity_id}")
             return
 
         _LOGGER.debug(f"Scene Capture: Handling capture for {entity_id}")
 
         if not entity_id.startswith("scene."):
-            _LOGGER.error(f"Scene Capture: Invalid entity_id {entity_id}, must be a scene entity (e.g., scene.adjustable_living_room)")
+            _LOGGER.error(f"Scene Capture: Invalid entity_id {entity_id}, must start with 'scene.' (e.g., scene.kitchen_cook)")
             return
         if not hass.states.get(entity_id):
-            _LOGGER.error(f"Scene Capture: Entity {entity_id} does not exist")
+            _LOGGER.error(f"Scene Capture: Entity {entity_id} does not exist or is not loaded")
             return
 
         await capture_scene_states(hass, entity_id)

@@ -1,12 +1,6 @@
 capture:
   name: Capture
   description: Captures the current states of entities in the specified scene and persists them to scenes.yaml.
-  fields:
-    entity_id:
-      name: Scene
-      description: The target scene entity to capture (must be a scene entity).
-      required: true
-      selector:
-        entity:
-          domain: scene
-          multiple: false
+  target:
+    entity:
+      domain: scene
