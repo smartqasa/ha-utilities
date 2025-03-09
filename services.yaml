@@ -1,0 +1,11 @@
+capture:
+  name: Capture
+  description: Captures the current states of entities in the specified scene and persists them to scenes.yaml.
+  fields:
+    scene_id:
+      name: Scene ID
+      description: The ID of the scene to capture (as defined in scenes.yaml).
+      required: true
+      example: "adjustable_living_room"
+      selector:
+        text:
