@@ -4,7 +4,6 @@ import yaml
 import aiofiles  # Non-blocking file I/O
 import asyncio  # For non-blocking sleep
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.core_config import Config
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 
