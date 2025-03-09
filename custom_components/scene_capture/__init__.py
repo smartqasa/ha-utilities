@@ -1,6 +1,8 @@
 import logging
 import os
 import yaml
+import aiofiles  # Non-blocking file I/O
+import asyncio  # For non-blocking sleep
 from homeassistant.core import HomeAssistant, ServiceCall, Config
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
@@ -8,7 +10,17 @@ import voluptuous as vol
 DOMAIN = "scene_capture"
 SERVICE_CAPTURE = "capture"
 
-SERVICE_SCHEMA = vol.Schema({}, extra=vol.REMOVE_EXTRA)
+# Proper schema for target at root level
+SERVICE_SCHEMA = vol.Schema(
+    {
+        vol.Required("target"): vol.Schema(
+            {
+                vol.Required("entity_id"): cv.entity_id
+            }
+        )
+    },
+    extra=vol.REMOVE_EXTRA,
+)
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -36,20 +48,40 @@ async def async_setup(hass: HomeAssistant, config: Config) -> bool:
         """Handle the capture service call."""
         _LOGGER.debug(f"Scene Capture: Received service call data: {call.data}")
 
-        # Extract entity_id from the new `target` format
-        target_entities = call.target.get("entity_id", [])
-        if not target_entities or not isinstance(target_entities, list):
-            _LOGGER.error(f"Scene Capture: Invalid or missing entity_id in target, received: {call.data}")
+        # Correctly extract entity_id from the target data
+        target_data = call.data.get("target", {})
+        entity_id = target_data.get("entity_id")
+        if not entity_id or not isinstance(entity_id, str):
+            _LOGGER.error(f"Scene Capture: Missing or invalid entity_id in target, received: {call.data}")
             return
 
-        entity_id = target_entities[0]  # Assuming only one scene is allowed
         _LOGGER.debug(f"Scene Capture: Handling capture for {entity_id}")
 
         if not entity_id.startswith("scene."):
             _LOGGER.error(f"Scene Capture: Invalid entity_id {entity_id}, must start with 'scene.'")
             return
-        if not hass.states.get(entity_id):
-            _LOGGER.error(f"Scene Capture: Entity {entity_id} does not exist or is not loaded")
+
+        # Use async method for non-blocking state retrieval with retry
+        max_attempts = 3
+        total_delay = 0
+        delay = 0.5  # Constant delay of 0.5s per attempt
+        state = None
+
+        for attempt in range(max_attempts):
+            state = await hass.async_add_executor_job(hass.states.get, entity_id)
+            if state and state.state is not None:  # Validate state is usable
+                break
+            
+            total_delay += delay
+            if total_delay >= 3:  # Immediately stop retrying when 3s is reached
+                _LOGGER.error(f"Scene Capture: Entity {entity_id} did not load within 3 seconds, stopping retries.")
+                return
+            
+            _LOGGER.warning(f"Scene Capture: Entity {entity_id} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
+            await asyncio.sleep(delay)
+
+        if not state:
+            _LOGGER.error(f"Scene Capture: Entity {entity_id} does not exist or is not loaded after {max_attempts} attempts (total {total_delay:.1f}s)")
             return
 
         await capture_scene_states(hass, entity_id)
@@ -69,8 +101,28 @@ async def capture_scene_states(hass: HomeAssistant, entity_id: str) -> None:
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
 
     try:
-        with open(scenes_file, "r") as f:
-            scenes_config = yaml.safe_load(f) or []
+        async with aiofiles.open(scenes_file, "r", encoding="utf-8") as f:
+            content = await f.read()
+            try:
+                scenes_config = yaml.safe_load(content) or []
+                # Validate scenes.yaml structure
+                if not isinstance(scenes_config, list):
+                    raise ValueError("scenes.yaml must contain a list of scenes")
+
+                scene_ids = set()
+                for scene in scenes_config:
+                    if not isinstance(scene, dict) or "id" not in scene or "entities" not in scene:
+                        raise ValueError("Each scene must be a dict with 'id' and 'entities' keys")
+                    # Check for duplicate scene IDs
+                    if scene["id"] in scene_ids:
+                        raise ValueError(f"Duplicate scene ID detected: {scene['id']}")
+                    scene_ids.add(scene["id"])
+            except yaml.YAMLError as yaml_error:
+                _LOGGER.error(f"Scene Capture: YAML parsing error in scenes.yaml: {yaml_error}")
+                return
+            except ValueError as ve:
+                _LOGGER.error(f"Scene Capture: Invalid structure in scenes.yaml: {str(ve)}")
+                return
     except FileNotFoundError:
         _LOGGER.warning(f"Scene Capture: scenes.yaml not found, creating a new one.")
         scenes_config = []
@@ -79,30 +131,32 @@ async def capture_scene_states(hass: HomeAssistant, entity_id: str) -> None:
         return
 
     scene_id = entity_id.split(".", 1)[1]
-    matching_scenes = [s for s in scenes_config if s.get("id") == scene_id]
 
-    if not matching_scenes:
+    # Only allow one scene per service call
+    target_scene = next((s for s in scenes_config if s.get("id") == scene_id), None)
+    if not target_scene:
         _LOGGER.error(f"Scene Capture: Scene {scene_id} not found in scenes.yaml")
         return
 
-    for target_scene in matching_scenes:
-        updated_entities = {}
-        for entity in target_scene.get("entities", {}):
-            state = hass.states.get(entity)
-            if state:
-                updated_entities[entity] = {"state": state.state}
-                for attr in ["brightness", "temperature", "rgb_color", "xy_color", "color_temp"]:
-                    attr_value = state.attributes.get(attr)
-                    if attr_value is not None:
-                        updated_entities[entity][attr] = attr_value
+    updated_entities = {}
+    for entity in target_scene.get("entities", {}):
+        # Use async method for non-blocking state retrieval
+        state = await hass.async_add_executor_job(hass.states.get, entity)
+        if state:
+            updated_entities[entity] = {"state": state.state}
+            # Dynamically capture all relevant state attributes, excluding metadata
+            excluded_attrs = {"last_updated", "last_changed", "context", "entity_id"}
+            attributes = state.attributes if isinstance(state.attributes, dict) else {}
+            updated_entities[entity].update({
+                attr: value for attr, value in attributes.items()
+                if value is not None and attr not in excluded_attrs
+            })
 
-        target_scene["entities"] = updated_entities
+    target_scene["entities"] = updated_entities
 
     try:
-        with open(scenes_file, "w") as f:
-            yaml.safe_dump(scenes_config, f, default_flow_style=False)
-
-        await hass.async_block_till_done()  # Ensure file write completes
+        async with aiofiles.open(scenes_file, "w", encoding="utf-8") as f:
+            await f.write(yaml.safe_dump(scenes_config, default_flow_style=False, allow_unicode=True, sort_keys=False))
         await hass.services.async_call("scene", "reload")
         _LOGGER.info(f"Scene Capture: Captured and persisted scene {scene_id}")
     except Exception as e:
