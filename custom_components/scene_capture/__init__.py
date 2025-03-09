@@ -32,13 +32,16 @@ async def async_setup(hass: HomeAssistant, config: Config) -> bool:
 
     async def handle_capture(call: ServiceCall) -> None:
         """Handle the capture service call."""
-        # Log the raw data for debugging
         _LOGGER.debug(f"Scene Capture: Received service call data: {call.data}")
 
+        # Extract entity_id from target
         entity_id = call.data.get("target", {}).get("entity_id")
         if not entity_id or not isinstance(entity_id, str):
-            _LOGGER.error(f"Scene Capture: Invalid or missing entity_id in target, received: {entity_id}")
-            return
+            # Fallback: Check if entity is sent directly (unlikely, but for robustness)
+            entity_id = call.data.get("target", {}).get("entity")
+            if not entity_id or not isinstance(entity_id, str):
+                _LOGGER.error(f"Scene Capture: Invalid or missing entity_id/entity in target, received: {call.data}")
+                return
 
         _LOGGER.debug(f"Scene Capture: Handling capture for {entity_id}")
 
