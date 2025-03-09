@@ -1,25 +1,38 @@
 import logging
 import os
 import yaml
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, Config
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 
 DOMAIN = "scene_capture"
 SERVICE_CAPTURE = "capture"
 SERVICE_SCHEMA = vol.Schema({
-    vol.Required("entity_id"): cv.entity_id  # Validates as an entity ID
+    vol.Required("target"): vol.Schema({
+        vol.Required("entity_id"): cv.entity_id
+    })
 })
+
+CONFIG_SCHEMA = vol.Schema({
+    DOMAIN: vol.Schema({
+        vol.Optional("enabled", default=True): cv.boolean
+    }),
+}, extra=vol.ALLOW_EXTRA)
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+async def async_setup(hass: HomeAssistant, config: Config) -> bool:
     """Set up the Scene Capture integration."""
+    conf = config.get(DOMAIN, {})
+    if not conf.get("enabled", True):
+        _LOGGER.info("Scene Capture: Integration disabled via configuration")
+        return False
+
     _LOGGER.debug("Scene Capture: Starting async setup")
 
     async def handle_capture(call: ServiceCall) -> None:
         """Handle the capture service call."""
-        entity_id = call.data["entity_id"]
+        entity_id = call.data["target"]["entity_id"]
         _LOGGER.debug(f"Scene Capture: Handling capture for {entity_id}")
         await capture_scene_states(hass, entity_id)
 
@@ -45,7 +58,6 @@ async def capture_scene_states(hass: HomeAssistant, entity_id: str) -> None:
         _LOGGER.error(f"Scene Capture: Failed to load scenes.yaml: {str(e)}")
         return
 
-    # Extract scene_id from entity_id (e.g., "scene.adjustable_living_room" -> "adjustable_living_room")
     if not entity_id.startswith("scene."):
         _LOGGER.error(f"Scene Capture: Invalid entity_id {entity_id}, must be a scene entity")
         return
