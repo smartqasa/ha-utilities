@@ -7,17 +7,19 @@ import voluptuous as vol
 
 DOMAIN = "scene_capture"
 SERVICE_CAPTURE = "capture"
-SERVICE_SCHEMA = vol.Schema({
-    vol.Required("target"): vol.Schema({
-        vol.Required("entity_id"): cv.entity_id
-    })
-}, extra=vol.REMOVE_EXTRA)
 
-CONFIG_SCHEMA = vol.Schema({
-    DOMAIN: vol.Schema({
-        vol.Optional("enabled", default=True): cv.boolean
-    }),
-}, extra=vol.ALLOW_EXTRA)
+SERVICE_SCHEMA = vol.Schema({}, extra=vol.REMOVE_EXTRA)
+
+CONFIG_SCHEMA = vol.Schema(
+    {
+        DOMAIN: vol.Schema(
+            {
+                vol.Optional("enabled", default=True): cv.boolean
+            }
+        )
+    },
+    extra=vol.ALLOW_EXTRA,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,19 +36,17 @@ async def async_setup(hass: HomeAssistant, config: Config) -> bool:
         """Handle the capture service call."""
         _LOGGER.debug(f"Scene Capture: Received service call data: {call.data}")
 
-        # Extract entity_id from target
-        entity_id = call.data.get("target", {}).get("entity_id")
-        if not entity_id or not isinstance(entity_id, str):
-            # Fallback: Check if entity is sent directly (unlikely, but for robustness)
-            entity_id = call.data.get("target", {}).get("entity")
-            if not entity_id or not isinstance(entity_id, str):
-                _LOGGER.error(f"Scene Capture: Invalid or missing entity_id/entity in target, received: {call.data}")
-                return
+        # Extract entity_id from the new `target` format
+        target_entities = call.target.get("entity_id", [])
+        if not target_entities or not isinstance(target_entities, list):
+            _LOGGER.error(f"Scene Capture: Invalid or missing entity_id in target, received: {call.data}")
+            return
 
+        entity_id = target_entities[0]  # Assuming only one scene is allowed
         _LOGGER.debug(f"Scene Capture: Handling capture for {entity_id}")
 
         if not entity_id.startswith("scene."):
-            _LOGGER.error(f"Scene Capture: Invalid entity_id {entity_id}, must start with 'scene.' (e.g., scene.kitchen_cook)")
+            _LOGGER.error(f"Scene Capture: Invalid entity_id {entity_id}, must start with 'scene.'")
             return
         if not hass.states.get(entity_id):
             _LOGGER.error(f"Scene Capture: Entity {entity_id} does not exist or is not loaded")
@@ -69,39 +69,40 @@ async def capture_scene_states(hass: HomeAssistant, entity_id: str) -> None:
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
 
     try:
-        scenes_config = await hass.async_add_executor_job(
-            lambda: yaml.safe_load(open(scenes_file, "r")) or []
-        )
+        with open(scenes_file, "r") as f:
+            scenes_config = yaml.safe_load(f) or []
+    except FileNotFoundError:
+        _LOGGER.warning(f"Scene Capture: scenes.yaml not found, creating a new one.")
+        scenes_config = []
     except Exception as e:
         _LOGGER.error(f"Scene Capture: Failed to load scenes.yaml: {str(e)}")
         return
 
     scene_id = entity_id.split(".", 1)[1]
-    target_scene = next((s for s in scenes_config if s.get("id") == scene_id), None)
-    if not target_scene:
+    matching_scenes = [s for s in scenes_config if s.get("id") == scene_id]
+
+    if not matching_scenes:
         _LOGGER.error(f"Scene Capture: Scene {scene_id} not found in scenes.yaml")
         return
 
-    entities = target_scene.get("entities", {})
-    if not entities:
-        _LOGGER.error(f"Scene Capture: No entities in scene {scene_id}")
-        return
+    for target_scene in matching_scenes:
+        updated_entities = {}
+        for entity in target_scene.get("entities", {}):
+            state = hass.states.get(entity)
+            if state:
+                updated_entities[entity] = {"state": state.state}
+                for attr in ["brightness", "temperature", "rgb_color", "xy_color", "color_temp"]:
+                    attr_value = state.attributes.get(attr)
+                    if attr_value is not None:
+                        updated_entities[entity][attr] = attr_value
 
-    updated_entities = {}
-    for entity_id in entities.keys():
-        state = hass.states.get(entity_id)
-        if state:
-            updated_entities[entity_id] = {"state": state.state}
-            for attr in state.attributes:
-                if attr in ["brightness", "temperature", "rgb_color", "xy_color", "color_temp"]:
-                    updated_entities[entity_id][attr] = state.attributes[attr]
-
-    target_scene["entities"] = updated_entities
+        target_scene["entities"] = updated_entities
 
     try:
-        await hass.async_add_executor_job(
-            lambda: yaml.safe_dump(scenes_config, open(scenes_file, "w"), default_flow_style=False)
-        )
+        with open(scenes_file, "w") as f:
+            yaml.safe_dump(scenes_config, f, default_flow_style=False)
+
+        await hass.async_block_till_done()  # Ensure file write completes
         await hass.services.async_call("scene", "reload")
         _LOGGER.info(f"Scene Capture: Captured and persisted scene {scene_id}")
     except Exception as e:

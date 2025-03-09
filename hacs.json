@@ -1,6 +1,6 @@
 {
   "name": "Scene Capture",
   "domains": ["scene_capture"],
-  "iot_class": ["Local Push"],
-  "render_readme": "True"
+  "iot_class": "Local Push",
+  "render_readme": true
 }
