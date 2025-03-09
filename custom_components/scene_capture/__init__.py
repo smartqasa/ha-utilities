@@ -26,7 +26,7 @@ CONFIG_SCHEMA = vol.Schema(
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup(hass: HomeAssistant, config: Config) -> bool:
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Scene Capture integration."""
     conf = config.get(DOMAIN, {})
     if not conf.get("enabled", True):
