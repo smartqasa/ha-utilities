@@ -10,17 +10,8 @@ import voluptuous as vol
 DOMAIN = "scene_capture"
 SERVICE_CAPTURE = "capture"
 
-# Proper schema for target at root level
-SERVICE_SCHEMA = vol.Schema(
-    {
-        vol.Required("target"): vol.Schema(
-            {
-                vol.Required("entity_id"): cv.entity_id
-            }
-        )
-    },
-    extra=vol.REMOVE_EXTRA,
-)
+# ✅ Allow Home Assistant to handle `target` at the root level
+SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -48,11 +39,14 @@ async def async_setup(hass: HomeAssistant, config: Config) -> bool:
         """Handle the capture service call."""
         _LOGGER.debug(f"Scene Capture: Received service call data: {call.data}")
 
-        # Correctly extract entity_id from the target data
-        target_data = call.data.get("target", {})
-        entity_id = target_data.get("entity_id")
-        if not entity_id or not isinstance(entity_id, str):
-            _LOGGER.error(f"Scene Capture: Missing or invalid entity_id in target, received: {call.data}")
+        # ✅ Extract entity_id correctly from call.target, NOT call.data
+        if not call.target or "entity_id" not in call.target:
+            _LOGGER.error(f"Scene Capture: Missing entity_id in target, received: {call.data}")
+            return
+
+        entity_id = call.target["entity_id"]
+        if not isinstance(entity_id, str):
+            _LOGGER.error(f"Scene Capture: Invalid entity_id type, expected string but got {type(entity_id)}")
             return
 
         _LOGGER.debug(f"Scene Capture: Handling capture for {entity_id}")
@@ -61,19 +55,19 @@ async def async_setup(hass: HomeAssistant, config: Config) -> bool:
             _LOGGER.error(f"Scene Capture: Invalid entity_id {entity_id}, must start with 'scene.'")
             return
 
-        # Use async method for non-blocking state retrieval with retry
+        # ✅ Use async method for non-blocking state retrieval with retry
         max_attempts = 3
         total_delay = 0
-        delay = 0.5  # Constant delay of 0.5s per attempt
+        delay = 0.5  # ✅ Constant delay of 0.5s per attempt
         state = None
 
         for attempt in range(max_attempts):
             state = await hass.async_add_executor_job(hass.states.get, entity_id)
-            if state and state.state is not None:  # Validate state is usable
+            if state and state.state is not None:  # ✅ Validate state is usable
                 break
             
             total_delay += delay
-            if total_delay >= 3:  # Immediately stop retrying when 3s is reached
+            if total_delay >= 3:  # ✅ Immediately stop retrying when 3s is reached
                 _LOGGER.error(f"Scene Capture: Entity {entity_id} did not load within 3 seconds, stopping retries.")
                 return
             
@@ -105,7 +99,7 @@ async def capture_scene_states(hass: HomeAssistant, entity_id: str) -> None:
             content = await f.read()
             try:
                 scenes_config = yaml.safe_load(content) or []
-                # Validate scenes.yaml structure
+                # ✅ Validate scenes.yaml structure
                 if not isinstance(scenes_config, list):
                     raise ValueError("scenes.yaml must contain a list of scenes")
 
@@ -113,7 +107,7 @@ async def capture_scene_states(hass: HomeAssistant, entity_id: str) -> None:
                 for scene in scenes_config:
                     if not isinstance(scene, dict) or "id" not in scene or "entities" not in scene:
                         raise ValueError("Each scene must be a dict with 'id' and 'entities' keys")
-                    # Check for duplicate scene IDs
+                    # ✅ Check for duplicate scene IDs
                     if scene["id"] in scene_ids:
                         raise ValueError(f"Duplicate scene ID detected: {scene['id']}")
                     scene_ids.add(scene["id"])
@@ -132,7 +126,7 @@ async def capture_scene_states(hass: HomeAssistant, entity_id: str) -> None:
 
     scene_id = entity_id.split(".", 1)[1]
 
-    # Only allow one scene per service call
+    # ✅ Only allow one scene per service call
     target_scene = next((s for s in scenes_config if s.get("id") == scene_id), None)
     if not target_scene:
         _LOGGER.error(f"Scene Capture: Scene {scene_id} not found in scenes.yaml")
@@ -140,11 +134,11 @@ async def capture_scene_states(hass: HomeAssistant, entity_id: str) -> None:
 
     updated_entities = {}
     for entity in target_scene.get("entities", {}):
-        # Use async method for non-blocking state retrieval
+        # ✅ Use async method for non-blocking state retrieval
         state = await hass.async_add_executor_job(hass.states.get, entity)
         if state:
             updated_entities[entity] = {"state": state.state}
-            # Dynamically capture all relevant state attributes, excluding metadata
+            # ✅ Dynamically capture all relevant state attributes, excluding metadata
             excluded_attrs = {"last_updated", "last_changed", "context", "entity_id"}
             attributes = state.attributes if isinstance(state.attributes, dict) else {}
             updated_entities[entity].update({
