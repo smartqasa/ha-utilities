@@ -1,38 +1,24 @@
+"""Config flow for Scene Capture integration."""
 import logging
-from homeassistant.core import HomeAssistant, ServiceCall, Config
+import voluptuous as vol
+from homeassistant import config_entries
+from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import FlowResult
 
 DOMAIN = "scene_capture"
-SERVICE_CAPTURE = "capture"
-
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup(hass: HomeAssistant, config: Config) -> bool:
-    """Set up the Scene Capture integration."""
-    _LOGGER.debug("Scene Capture: Starting async setup")
+class SceneCaptureConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Scene Capture."""
 
-    async def handle_capture(call: ServiceCall) -> None:
-        """Handle the capture service call and log the entity_id."""
-        _LOGGER.debug(f"Scene Capture: Received service call data: {call.data}")
-        _LOGGER.debug(f"Scene Capture: Received target: {call.target}")
+    VERSION = 1
 
-        # Extract entity_id from call.target
-        if not call.target or "entity_id" not in call.target:
-            _LOGGER.error(f"Scene Capture: Missing entity_id in target, received: {call.target}")
-            return
+    async def async_step_user(self, user_input=None) -> FlowResult:
+        """Handle the user-initiated flow."""
+        if user_input is not None:
+            return self.async_create_entry(title="Scene Capture", data={})
 
-        entity_id = call.target["entity_id"]
-        if not isinstance(entity_id, str):
-            _LOGGER.error(f"Scene Capture: Invalid entity_id type, expected string but got {type(entity_id)}")
-            return
-
-        # Log the entity_id
-        _LOGGER.info(f"Scene Capture: Logged entity_id: {entity_id}")
-
-    # Register the service without a schema, letting services.yaml handle target
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_CAPTURE,
-        handle_capture,
-    )
-    _LOGGER.info("Scene Capture: Service registered successfully")
-    return True
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema({})
+        )
