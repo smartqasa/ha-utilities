@@ -7,14 +7,15 @@ ACTION_CAPTURE = "capture"
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    _LOGGER.error("Scene Capture: TEST ERROR LOG - If you see this, logging works!")
-    
     """Initialize Scene Capture integration."""
+    _LOGGER.info("Scene Capture: Initializing setup.")
 
     async def handle_capture(call: ServiceCall) -> None:
-        """Log the full action call data."""
-        _LOGGER.debug("Scene Capture: handle_capture called with data: %s", call.data)
+        """Handle action call and log data."""
+        _LOGGER.info("Scene Capture: handle_capture was called with data: %s", call.data)
 
     hass.services.async_register(DOMAIN, ACTION_CAPTURE, handle_capture)
-    _LOGGER.info("Scene Capture: Action registered successfully")
+    _LOGGER.info("Scene Capture: Service registered as scene_capture.capture")
+
     return True
+
