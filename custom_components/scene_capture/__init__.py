@@ -11,13 +11,13 @@ async def async_setup(hass: HomeAssistant, config: Config) -> bool:
     _LOGGER.debug("Scene Capture: Starting async setup")
 
     async def handle_capture(call: ServiceCall) -> None:
-        """Handle the capture service call."""
+        """Handle the capture service call and log the entity_id."""
         _LOGGER.debug(f"Scene Capture: Received service call data: {call.data}")
         _LOGGER.debug(f"Scene Capture: Received target: {call.target}")
 
         # Extract entity_id from call.target
         if not call.target or "entity_id" not in call.target:
-            _LOGGER.error(f"Scene Capture: Missing entity_id in target, received target: {call.target}")
+            _LOGGER.error(f"Scene Capture: Missing entity_id in target, received: {call.target}")
             return
 
         entity_id = call.target["entity_id"]
@@ -26,9 +26,9 @@ async def async_setup(hass: HomeAssistant, config: Config) -> bool:
             return
 
         # Log the entity_id
-        _LOGGER.info(f"Scene Capture: Received entity_id: {entity_id}")
+        _LOGGER.info(f"Scene Capture: Logged entity_id: {entity_id}")
 
-    # Register the service
+    # Register the service without a schema, letting services.yaml handle target
     hass.services.async_register(
         DOMAIN,
         SERVICE_CAPTURE,
