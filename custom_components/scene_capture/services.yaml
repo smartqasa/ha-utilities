@@ -1,6 +1,8 @@
 capture:
-  name: Capture
-  description: Captures the current states of entities in the specified scene and persists them to scenes.yaml.
-  target:
-    entity:
-      domain: scene
+  name: Capture Scene
+  description: Logs the selected scene entity.
+  action:
+    target:
+      entity:
+        domain: scene
+        multiple: false
