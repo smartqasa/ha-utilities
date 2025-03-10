@@ -4,4 +4,3 @@ capture:
   target:
     entity:
       domain: scene
-      multiple: false
