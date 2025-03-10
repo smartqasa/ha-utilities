@@ -1,6 +1,7 @@
 {
   "name": "Scene Capture",
+  "integration": true,
   "domains": ["scene_capture"],
-  "iot_class": "Local Push",
+  "iot_class": "Assumed State",
   "render_readme": true
 }
