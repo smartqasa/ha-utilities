@@ -1,8 +1,6 @@
 capture:
   name: Capture Scene
   description: Logs the selected scene entity.
-  action:
-    target:
-      entity:
-        domain: scene
-        multiple: false
+  target:
+    entity:
+      domain: scene
