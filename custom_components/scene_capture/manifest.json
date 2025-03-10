@@ -8,7 +8,5 @@
   "integration_type": "service",
   "iot_class": "assumed_state",
   "requirements": [],
-  "dependencies": [],
-  "config_flow": true,
-  "single_config_entry": true
+  "dependencies": []
 }
