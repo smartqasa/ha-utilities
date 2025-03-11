@@ -7,6 +7,6 @@
   "codeowners": ["@smartqasa"],
   "integration_type": "service",
   "iot_class": "assumed_state",
-  "requirements": [],
-  "dependencies": ["scene"]
+  "dependencies": ["scene"],
+  "requirements": ["pyyaml", "aiofiles"]
 }
