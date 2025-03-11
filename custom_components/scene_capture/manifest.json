@@ -8,5 +8,5 @@
   "integration_type": "service",
   "iot_class": "assumed_state",
   "dependencies": ["scene"],
-  "requirements": ["pyyaml", "aiofiles"]
+  "requirements": ["aiofiles", "pyyaml", "voluptuous"]
 }
