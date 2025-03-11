@@ -26,6 +26,16 @@ SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 
 _LOGGER = logging.getLogger(__name__)
 
+def convert_enums_to_strings(data):
+    """Recursively convert Enum objects to their string values."""
+    if isinstance(data, dict):
+        return {k: convert_enums_to_strings(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [convert_enums_to_strings(item) for item in data]
+    elif isinstance(data, Enum):
+        return data.value
+    return data
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     conf = config.get(DOMAIN, {})
     if not conf.get("enabled", True):
@@ -117,13 +127,10 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             await asyncio.sleep(delay)
 
         if state:
-            # Copy the entire attributes block as a dictionary and add state
+            # Copy the entire attributes block and add state
             attributes = state.attributes if isinstance(state.attributes, dict) else {}
-            # Convert Enum objects to strings in a single pass
-            entity_data = {
-                k: v.value if isinstance(v, Enum) else v for k, v in attributes.items()
-                if v is not None
-            }
+            # Convert all Enum objects to strings recursively
+            entity_data = convert_enums_to_strings(attributes)
             entity_data["state"] = state.state  # Add state at the same level
             updated_entities[entity] = entity_data
 
