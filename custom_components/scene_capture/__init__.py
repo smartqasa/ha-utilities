@@ -30,7 +30,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     async def handle_capture(call: ServiceCall) -> None:
         entity_id = call.data.get("entity_id")
 
-        _LOGGER.debug(f"Scene Capture: handle_capture was called with entity_id: {entity_id}")      
+        _LOGGER.debug(f"Scene Capture: handle_capture was called with entity_id: {call.data}")      
 
         if isinstance(entity_id, list):
             entity_id = entity_id[0]
