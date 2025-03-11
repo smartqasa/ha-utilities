@@ -1,0 +1,18 @@
+# Virtual environment
+venv/
+.venv/
+
+# Python compiled files
+__pycache__/
+*.pyc
+
+# VSC settings
+.vscode/
+
+# OS generated files
+*.swp
+.DS_Store
+
+# HA specific
+custom_components/.homeassistant/
+deps/
