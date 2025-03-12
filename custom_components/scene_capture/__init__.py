@@ -1,5 +1,6 @@
 import aiofiles
 import asyncio
+import copy
 from enum import Enum
 from homeassistant.core import HomeAssistant, ServiceCall
 import homeassistant.helpers.config_validation as cv
@@ -10,9 +11,9 @@ import yaml
 
 """
 Home Assistant custom integration for recapturing the state and attributes of
-the entities of a pre-existing scene.
+the entities of a pre-exsting scene.
 
-This integration provides a service to update the current states of entities
+This integration provides a service to capture the current states of entities
 in a specified scene and persist them to scenes.yaml.
 
 Usage example:
@@ -43,18 +44,19 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
-SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)  # Your reverted schema
+SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
+
 
 _LOGGER = logging.getLogger(__name__)
 
 def convert_enums_to_strings(data):
-    """Recursively convert Enum objects and other unserializable types to strings or basic types.
+    """Recursively convert Enum objects to their string values.
 
     Args:
         data: The data to convert (can be dict, list, Enum, or other types)
 
     Returns:
-        The data with all unserializable objects converted to basic types
+        The data with all Enum objects converted to their string values
     """
     if isinstance(data, dict):
         return {k: convert_enums_to_strings(v) for k, v in data.items()}
@@ -62,11 +64,7 @@ def convert_enums_to_strings(data):
         return [convert_enums_to_strings(item) for item in data]
     elif isinstance(data, Enum):
         return data.value
-    elif isinstance(data, (int, float, str, bool)) or data is None:
-        return data  # Already serializable
-    else:
-        _LOGGER.debug(f"Converting unserializable object to string: {data}")
-        return str(data)
+    return data
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Scene Capture integration.
@@ -83,16 +81,16 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         _LOGGER.info("Scene Capture: Integration disabled via configuration")
         return False
 
-    async def handle_update(call: ServiceCall) -> None:
-        """Handle the scene update service call.
+    async def handle_capture(call: ServiceCall) -> None:
+        """Handle the scene capture service call.
 
         Args:
-            call: The service call object containing the entity_id in call.data
+            call: The service call object containing the entity_id
 
-        Updates the current states of entities in the specified scene
-        and persists them to scenes.yaml.
+        Captures the current states of entities in the specified scene
+        and updates scenes.yaml accordingly.
         """
-        entity_id = call.data.get("entity_id")  # Using call.data as per your logs
+        entity_id = call.data.get("entity_id")
 
         if isinstance(entity_id, list):
             entity_id = entity_id[0]
@@ -110,14 +108,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             return
         scene_id = state.attributes["id"]
 
-        _LOGGER.debug(f"Scene Capture: handle_update was called with entity_id: {entity_id}, scene_id: {scene_id}")
-
         await capture_scene_states(hass, scene_id)
 
     hass.services.async_register(
         DOMAIN,
         SERVICE,
-        handle_update,
+        handle_capture,
         schema=SERVICE_SCHEMA,
     )
     _LOGGER.info("Scene Capture: Service registered successfully")
@@ -178,15 +174,11 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 await asyncio.sleep(delay)
 
             if state:
-                attributes = state.attributes if isinstance(state.attributes, dict) else {}
-                entity_data = convert_enums_to_strings(attributes)
-                entity_data["state"] = state.state
-                updated_entities[entity] = entity_data
+                attributes = copy.deepcopy(state.attributes) if isinstance(state.attributes, dict) else {}
+                attributes["state"] = state.state
+                updated_entities[entity] = attributes
 
         target_scene["entities"] = updated_entities
-
-        _LOGGER.debug(f"Updated entities: {updated_entities}")
-        _LOGGER.debug(f"Scenes config before dump: {scenes_config}")
 
         try:
             yaml_content = yaml.safe_dump(scenes_config, default_flow_style=False, allow_unicode=True, sort_keys=False)
