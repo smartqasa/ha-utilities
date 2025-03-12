@@ -10,9 +10,9 @@ import yaml
 
 """
 Home Assistant custom integration for recapturing the state and attributes of
-the entities of a pre-exsting scene.
+the entities of a pre-existing scene.
 
-This integration provides a service to capture the current states of entities
+This integration provides a service to update the current states of entities
 in a specified scene and persist them to scenes.yaml.
 
 Usage example:
@@ -45,17 +45,16 @@ CONFIG_SCHEMA = vol.Schema(
 
 SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 
-
 _LOGGER = logging.getLogger(__name__)
 
 def convert_enums_to_strings(data):
-    """Recursively convert Enum objects to their string values.
+    """Recursively convert Enum objects and other unserializable types to strings or basic types.
 
     Args:
         data: The data to convert (can be dict, list, Enum, or other types)
 
     Returns:
-        The data with all Enum objects converted to their string values
+        The data with all unserializable objects converted to basic types
     """
     if isinstance(data, dict):
         return {k: convert_enums_to_strings(v) for k, v in data.items()}
@@ -63,7 +62,12 @@ def convert_enums_to_strings(data):
         return [convert_enums_to_strings(item) for item in data]
     elif isinstance(data, Enum):
         return data.value
-    return data
+    elif isinstance(data, (int, float, str, bool)) or data is None:
+        return data  # Already serializable
+    else:
+        # Convert any other unserializable object to its string representation
+        _LOGGER.debug(f"Converting unserializable object to string: {data}")
+        return str(data)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Scene Capture integration.
@@ -80,16 +84,17 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         _LOGGER.info("Scene Capture: Integration disabled via configuration")
         return False
 
-    async def handle_capture(call: ServiceCall) -> None:
-        """Handle the scene capture service call.
+    async def handle_update(call: ServiceCall) -> None:  # Renamed for consistency
+        """Handle the scene update service call.
 
         Args:
             call: The service call object containing the entity_id
 
-        Captures the current states of entities in the specified scene
-        and updates scenes.yaml accordingly.
+        Updates the current states of entities in the specified scene
+        and persists them to scenes.yaml.
         """
-        entity_id = call.data.get("entity_id")
+        # Use call.target if present, fall back to call.data
+        entity_id = call.target.get("entity_id") if call.target else call.data.get("entity_id")
 
         if isinstance(entity_id, list):
             entity_id = entity_id[0]
@@ -107,12 +112,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             return
         scene_id = state.attributes["id"]
 
+        _LOGGER.debug(f"Scene Capture: handle_update was called with entity_id: {entity_id}, scene_id: {scene_id}")
+
         await capture_scene_states(hass, scene_id)
 
     hass.services.async_register(
         DOMAIN,
         SERVICE,
-        handle_capture,
+        handle_update,  # Updated to handle_update
         schema=SERVICE_SCHEMA,
     )
     _LOGGER.info("Scene Capture: Service registered successfully")
@@ -179,6 +186,10 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 updated_entities[entity] = entity_data
 
         target_scene["entities"] = updated_entities
+
+        # Added debug logging to inspect data before serialization
+        _LOGGER.debug(f"Updated entities: {updated_entities}")
+        _LOGGER.debug(f"Scenes config before dump: {scenes_config}")
 
         try:
             yaml_content = yaml.safe_dump(scenes_config, default_flow_style=False, allow_unicode=True, sort_keys=False)
