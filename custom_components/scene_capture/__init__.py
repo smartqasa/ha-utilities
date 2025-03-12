@@ -171,7 +171,7 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 if state and state.state is not None:
                     break
                 
-                delay = 0.5 * (2 ** attempt)  # Exponential backoff: 0.5s, 1s, 2s
+                delay = 0.5 * (2 ** attempt)
                 if attempt == max_attempts - 1:
                     _LOGGER.warning(f"Scene Capture: Entity {entity} did not load after {max_attempts} attempts, skipping.")
                     break
