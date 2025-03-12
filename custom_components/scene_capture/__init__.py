@@ -43,7 +43,7 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
-SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
+SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)  # Your reverted schema
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,7 +65,6 @@ def convert_enums_to_strings(data):
     elif isinstance(data, (int, float, str, bool)) or data is None:
         return data  # Already serializable
     else:
-        # Convert any other unserializable object to its string representation
         _LOGGER.debug(f"Converting unserializable object to string: {data}")
         return str(data)
 
@@ -84,17 +83,16 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         _LOGGER.info("Scene Capture: Integration disabled via configuration")
         return False
 
-    async def handle_update(call: ServiceCall) -> None:  # Renamed for consistency
+    async def handle_update(call: ServiceCall) -> None:
         """Handle the scene update service call.
 
         Args:
-            call: The service call object containing the entity_id
+            call: The service call object containing the entity_id in call.data
 
         Updates the current states of entities in the specified scene
         and persists them to scenes.yaml.
         """
-        # Use call.target if present, fall back to call.data
-        entity_id = call.target.get("entity_id") if call.target else call.data.get("entity_id")
+        entity_id = call.data.get("entity_id")  # Using call.data as per your logs
 
         if isinstance(entity_id, list):
             entity_id = entity_id[0]
@@ -119,7 +117,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.services.async_register(
         DOMAIN,
         SERVICE,
-        handle_update,  # Updated to handle_update
+        handle_update,
         schema=SERVICE_SCHEMA,
     )
     _LOGGER.info("Scene Capture: Service registered successfully")
@@ -187,7 +185,6 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
 
         target_scene["entities"] = updated_entities
 
-        # Added debug logging to inspect data before serialization
         _LOGGER.debug(f"Updated entities: {updated_entities}")
         _LOGGER.debug(f"Scenes config before dump: {scenes_config}")
 
