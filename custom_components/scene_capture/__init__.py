@@ -27,7 +27,8 @@ CONFIG_SCHEMA = vol.Schema(
 SERVICE_SCHEMA = vol.Schema(
     {
         vol.Required("entity_id"): cv.string
-    }
+    },
+    extra=vol.ALLOW_EXTRA,
 )
 
 _LOGGER = logging.getLogger(__name__)
