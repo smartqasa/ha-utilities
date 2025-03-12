@@ -174,8 +174,8 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 await asyncio.sleep(delay)
 
             if state:
-                attributes = copy.deepcopy(state.attributes) if isinstance(state.attributes, dict) else {}
-                attributes["state"] = state.state
+                attributes = dict(state.attributes) if isinstance(state.attributes, dict) else {}  # ✅ Convert ReadOnlyDict to dict
+                attributes["state"] = str(state.state)  # ✅ Ensure state is stored as a string
                 updated_entities[entity] = attributes
 
         target_scene["entities"] = updated_entities
