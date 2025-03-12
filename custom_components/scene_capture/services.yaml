@@ -1,6 +1,6 @@
 update:
   name: Update Scene
-  description: Captures the states and attributes of a scene's entities.
+  description: Updates the states and attributes of a scene's entities.
   target:
     entity:
       domain: scene

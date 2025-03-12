@@ -1,7 +1,7 @@
 {
   "domain": "scene_capture",
-  "name": "Dynamic Scene Capture",
-  "version": "0.1.0",
+  "name": "Scene Capture",
+  "version": "0.2.0",
   "documentation": "https://github.com/smartqasa/scene_capture",
   "issue_tracker": "https://github.com/smartqasa/scene_capture/issues",
   "codeowners": ["@smartqasa"],

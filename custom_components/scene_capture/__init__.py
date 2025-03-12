@@ -45,7 +45,11 @@ CONFIG_SCHEMA = vol.Schema(
 
 SERVICE_SCHEMA = vol.Schema(
     {
-        vol.Required("entity_id"): cv.string
+        vol.Required("target"): vol.Schema(
+            {
+                vol.Required("entity_id"): cv.entity_id
+            }
+        )
     }
 )
 
