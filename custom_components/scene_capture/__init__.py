@@ -8,6 +8,24 @@ import os
 import voluptuous as vol
 import yaml
 
+"""
+Home Assistant custom integration for capturing and updating scene states.
+
+This integration provides a service to capture the current states of entities
+in a specified scene and persist them to scenes.yaml.
+
+Usage example:
+  # In a script or automation
+  service: scene_capture.capture
+  data:
+    entity_id: scene.living_room
+
+Configuration example:
+  # configuration.yaml
+  scene_capture:
+    enabled: true  # Optional, defaults to true
+"""
+
 DOMAIN = "scene_capture"
 SERVICE = "capture"
 
@@ -33,7 +51,14 @@ SERVICE_SCHEMA = vol.Schema(
 _LOGGER = logging.getLogger(__name__)
 
 def convert_enums_to_strings(data):
-    """Recursively convert Enum objects to their string values."""
+    """Recursively convert Enum objects to their string values.
+
+    Args:
+        data: The data to convert (can be dict, list, Enum, or other types)
+
+    Returns:
+        The data with all Enum objects converted to their string values
+    """
     if isinstance(data, dict):
         return {k: convert_enums_to_strings(v) for k, v in data.items()}
     elif isinstance(data, list):
@@ -43,6 +68,15 @@ def convert_enums_to_strings(data):
     return data
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Set up the Scene Capture integration.
+
+    Args:
+        hass: The HomeAssistant instance
+        config: Configuration dictionary for the integration
+
+    Returns:
+        bool: True if setup was successful, False otherwise
+    """
     conf = config.get(DOMAIN, {})
     if not conf.get("enabled", True):
         _LOGGER.info("Scene Capture: Integration disabled via configuration")
@@ -51,6 +85,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.debug("Scene Capture: Starting async setup")
 
     async def handle_capture(call: ServiceCall) -> None:
+        """Handle the scene capture service call.
+
+        Args:
+            call: The service call object containing the entity_id
+
+        Captures the current states of entities in the specified scene
+        and updates scenes.yaml accordingly.
+        """
         entity_id = call.data.get("entity_id")
 
         if isinstance(entity_id, list):
@@ -63,7 +105,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             _LOGGER.error(f"Scene Capture: Invalid entity_id {entity_id}, must start with 'scene.'")
             return
         
-        # Get the scene_id from the entity attributes
         state = hass.states.get(entity_id)
         if not state or "id" not in state.attributes:
             _LOGGER.error(f"Scene Capture: No 'id' found in attributes for entity_id {entity_id}")
@@ -84,7 +125,15 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     return True
 
 async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
-    """Capture current entity states into the scene and persist to scenes.yaml."""
+    """Capture current entity states into the scene and persist to scenes.yaml.
+
+    Args:
+        hass: The HomeAssistant instance
+        scene_id: The ID of the scene to capture (from scene entity attributes)
+
+    Updates the specified scene in scenes.yaml with current entity states,
+    retrying up to 3 times per entity if states are unavailable.
+    """
     _LOGGER.debug(f"Scene Capture: Capturing scene with scene_id {scene_id}")
 
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
@@ -107,7 +156,6 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             _LOGGER.error(f"Scene Capture: Failed to load scenes.yaml: {str(e)}")
             return
 
-        # Direct lookup using next with generator expression
         target_scene = next((scene for scene in scenes_config if scene["id"] == scene_id), None)
         if not target_scene:
             _LOGGER.error(f"Scene Capture: Scene {scene_id} not found in scenes.yaml")
@@ -115,34 +163,29 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
 
         updated_entities = {}
         for entity in target_scene.get("entities", {}):
-            # Retry logic for each entity in the scene
             max_attempts = 3
-            total_delay = 0
-            delay = 0.5
             state = None
 
             for attempt in range(max_attempts):
-                state = await hass.async_add_executor_job(hass.states.get, entity)
+                state = hass.states.async_get(entity)
                 if state and state.state is not None:
                     break
-                total_delay += delay
-                if total_delay >= 3:
-                    _LOGGER.warning(f"Scene Capture: Entity {entity} did not load within 3 seconds, skipping.")
+                
+                delay = 0.5 * (2 ** attempt)  # Exponential backoff: 0.5s, 1s, 2s
+                if attempt == max_attempts - 1:
+                    _LOGGER.warning(f"Scene Capture: Entity {entity} did not load after {max_attempts} attempts, skipping.")
                     break
                 _LOGGER.warning(f"Scene Capture: Entity {entity} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
                 await asyncio.sleep(delay)
 
             if state:
-                # Copy the entire attributes block and add state
                 attributes = state.attributes if isinstance(state.attributes, dict) else {}
-                # Convert all Enum objects to strings recursively
                 entity_data = convert_enums_to_strings(attributes)
-                entity_data["state"] = state.state  # Add state at the same level
+                entity_data["state"] = state.state
                 updated_entities[entity] = entity_data
 
         target_scene["entities"] = updated_entities
 
-        # Serialize and validate before writing
         try:
             yaml_content = yaml.safe_dump(scenes_config, default_flow_style=False, allow_unicode=True, sort_keys=False)
             if not yaml_content.strip():
