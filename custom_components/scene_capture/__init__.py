@@ -123,17 +123,17 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
         
         for entity in target_scene.get("entities", {}):
             max_attempts = 3
+            total_delay = 0
+            delay = 0.5
             state = None
 
             for attempt in range(max_attempts):
-                state = hass.states.async_get(entity)
+                state = await hass.async_add_executor_job(hass.states.get, entity)
                 if state and state.state is not None:
                     break
-                
-                # Exponential backoff: 0.5s, 1s, 2s
-                delay = 0.5 * (2 ** attempt)
-                if attempt == max_attempts - 1:
-                    _LOGGER.warning(f"Scene Capture: Entity {entity} did not load after {max_attempts} attempts, skipping.")
+                total_delay += delay
+                if total_delay >= 3:
+                    _LOGGER.warning(f"Scene Capture: Entity {entity} did not load within 3 seconds, skipping.")
                     break
                 _LOGGER.warning(f"Scene Capture: Entity {entity} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
                 await asyncio.sleep(delay)
@@ -143,6 +143,7 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 entity_data = convert_enums_to_strings(attributes)
                 entity_data["state"] = state.state
                 
+                # Check if entity data actually changed
                 old_data = target_scene["entities"].get(entity, {})
                 if old_data != entity_data:
                     updated_entities[entity] = entity_data
