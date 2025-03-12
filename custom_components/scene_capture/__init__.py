@@ -9,7 +9,8 @@ import voluptuous as vol
 import yaml
 
 """
-Home Assistant custom integration for capturing and updating scene states.
+Home Assistant custom integration for recapturing the state and attributes of
+the entities of a pre-exsting scene.
 
 This integration provides a service to capture the current states of entities
 in a specified scene and persist them to scenes.yaml.
@@ -17,7 +18,7 @@ in a specified scene and persist them to scenes.yaml.
 Usage example:
   # In a script or automation
   service: scene_capture.capture
-  data:
+  target:
     entity_id: scene.living_room
 
 Configuration example:
@@ -82,8 +83,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         _LOGGER.info("Scene Capture: Integration disabled via configuration")
         return False
 
-    _LOGGER.debug("Scene Capture: Starting async setup")
-
     async def handle_capture(call: ServiceCall) -> None:
         """Handle the scene capture service call.
 
@@ -110,8 +109,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             _LOGGER.error(f"Scene Capture: No 'id' found in attributes for entity_id {entity_id}")
             return
         scene_id = state.attributes["id"]
-
-        _LOGGER.debug(f"Scene Capture: handle_capture was called with entity_id: {entity_id}, scene_id: {scene_id}")
 
         await capture_scene_states(hass, scene_id)
 
@@ -171,7 +168,7 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 if state and state.state is not None:
                     break
                 
-                delay = 0.5 * (2 ** attempt)
+                delay = 0.25 * (2 ** attempt)
                 if attempt == max_attempts - 1:
                     _LOGGER.warning(f"Scene Capture: Entity {entity} did not load after {max_attempts} attempts, skipping.")
                     break
