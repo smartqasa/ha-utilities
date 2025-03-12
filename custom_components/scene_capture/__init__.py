@@ -167,7 +167,7 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             state = None
 
             for attempt in range(max_attempts):
-                state = hass.states.async_get(entity)
+                state = await hass.async_add_executor_job(hass.states.get, entity)
                 if state and state.state is not None:
                     break
                 
