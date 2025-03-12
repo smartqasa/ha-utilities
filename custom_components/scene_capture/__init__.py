@@ -86,7 +86,6 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
 
     async with CAPTURE_LOCK:
-        # Load scenes.yaml
         try:
             async with aiofiles.open(scenes_file, "r", encoding="utf-8") as f:
                 content = await f.read()
@@ -94,7 +93,6 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 if not isinstance(scenes_config, list):
                     raise ValueError("scenes.yaml does not contain a list of scenes")
 
-                # Validate scene structure once during load
                 for scene in scenes_config:
                     if not isinstance(scene, dict) or "id" not in scene or "entities" not in scene:
                         raise ValueError("Each scene must be a dict with 'id' and 'entities' keys")
@@ -105,23 +103,15 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             _LOGGER.error(f"Scene Capture: Failed to load scenes.yaml: {str(e)}")
             return
 
-        # Find the target scene index
-        target_index = None
-        for i, scene in enumerate(scenes_config):
-            if scene["id"] == scene_id:
-                target_index = i
-                break
-        
-        if target_index is None:
+        # Direct lookup using next with generator expression
+        target_scene = next((scene for scene in scenes_config if scene["id"] == scene_id), None)
+        if not target_scene:
             _LOGGER.error(f"Scene Capture: Scene {scene_id} not found in scenes.yaml")
             return
 
-        # Capture states for entities in the target scene
         updated_entities = {}
-        target_scene = scenes_config[target_index]
-        entities_changed = False
-        
         for entity in target_scene.get("entities", {}):
+            # Retry logic for each entity in the scene
             max_attempts = 3
             total_delay = 0
             delay = 0.5
@@ -139,32 +129,24 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 await asyncio.sleep(delay)
 
             if state:
+                # Copy the entire attributes block and add state
                 attributes = state.attributes if isinstance(state.attributes, dict) else {}
+                # Convert all Enum objects to strings recursively
                 entity_data = convert_enums_to_strings(attributes)
-                entity_data["state"] = state.state
-                
-                # Check if entity data actually changed
-                old_data = target_scene["entities"].get(entity, {})
-                if old_data != entity_data:
-                    updated_entities[entity] = entity_data
-                    entities_changed = True
+                entity_data["state"] = state.state  # Add state at the same level
+                updated_entities[entity] = entity_data
 
-        # Only update and write if there are changes
-        if entities_changed:
-            # Update only the changed entities
-            target_scene["entities"].update(updated_entities)
-            scenes_config[target_index] = target_scene
+        target_scene["entities"] = updated_entities
 
-            try:
-                yaml_content = yaml.safe_dump(scenes_config, default_flow_style=False, allow_unicode=True, sort_keys=False)
-                if not yaml_content.strip():
-                    raise ValueError("Serialized YAML content is empty")
-                async with aiofiles.open(scenes_file, "w", encoding="utf-8") as f:
-                    await f.write(yaml_content)
-                await hass.services.async_call("scene", "reload")
-                _LOGGER.info(f"Scene Capture: Captured and persisted scene {scene_id}")
-            except Exception as e:
-                _LOGGER.error(f"Scene Capture: Failed to update scenes.yaml: {str(e)}")
-                return
-        else:
-            _LOGGER.debug(f"Scene Capture: No changes detected for scene {scene_id}, skipping write")
+        # Serialize and validate before writing
+        try:
+            yaml_content = yaml.safe_dump(scenes_config, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            if not yaml_content.strip():
+                raise ValueError("Serialized YAML content is empty")
+            async with aiofiles.open(scenes_file, "w", encoding="utf-8") as f:
+                await f.write(yaml_content)
+            await hass.services.async_call("scene", "reload")
+            _LOGGER.info(f"Scene Capture: Captured and persisted scene {scene_id}")
+        except Exception as e:
+            _LOGGER.error(f"Scene Capture: Failed to update scenes.yaml: {str(e)}")
+            return
