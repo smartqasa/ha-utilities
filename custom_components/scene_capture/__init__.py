@@ -1,6 +1,6 @@
 import aiofiles
 import asyncio
-import copy
+from copy import deepcopy
 from enum import Enum
 from homeassistant.core import HomeAssistant, ServiceCall
 import homeassistant.helpers.config_validation as cv
@@ -173,7 +173,7 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 await asyncio.sleep(delay)
 
             if state:
-                attributes = dict(state.attributes) if isinstance(state.attributes, dict) else {}  # ✅ Make a copy
+                attributes = deepcopy(state.attributes) if isinstance(state.attributes, dict) else {}  # ✅ Deep copy
                 attributes["state"] = str(state.state)  # ✅ Now it's a mutable dictionary
                 updated_entities[entity] = attributes
 
