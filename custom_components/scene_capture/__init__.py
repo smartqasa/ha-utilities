@@ -54,14 +54,16 @@ def make_serializable(data):
         return {k: make_serializable(v) for k, v in data.items()}
     elif isinstance(data, list):
         return [make_serializable(item) for item in data]
-    elif hasattr(data, "value"):  # Handles enums like ColorMode
-        return str(data.value)  # Gets 'brightness' from ColorMode.BRIGHTNESS
-    elif isinstance(data, (int, float, str, bool)) or data is None:
+    elif isinstance(data, tuple):  # ✅ Convert tuples to lists
+        return list(data)
+    elif isinstance(data, Enum):  # ✅ Convert Enums to string values
+        return data.value
+    elif isinstance(data, (int, float, bool, str)):  # ✅ Allow common YAML-safe types
         return data
     else:
         _LOGGER.debug(f"Unexpected type, converting to string: {data}")
-        return str(data)  # Fallback, not repr(data)
-
+        return str(data)  # ✅ Convert any unknown object to a string
+    
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Scene Capture integration.
 
