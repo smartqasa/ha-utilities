@@ -3,5 +3,6 @@
   "integration": true,
   "domains": ["scene_capture"],
   "iot_class": "Assumed State",
-  "render_readme": true
+  "render_readme": true,
+  "image": "https://github.com/smartqasa/scene_capture/raw/main/custom_components/scene_capture/icon.png"
 }

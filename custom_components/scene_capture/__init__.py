@@ -49,22 +49,18 @@ SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 
 _LOGGER = logging.getLogger(__name__)
 
-def convert_enums_to_strings(data):
-    """Recursively convert Enum objects to their string values.
-
-    Args:
-        data: The data to convert (can be dict, list, Enum, or other types)
-
-    Returns:
-        The data with all Enum objects converted to their string values
-    """
+def make_yaml_safe(data):
+    """Recursively convert non-YAML-safe types into compatible values."""
     if isinstance(data, dict):
-        return {k: convert_enums_to_strings(v) for k, v in data.items()}
+        return {k: make_yaml_safe(v) for k, v in data.items()}
     elif isinstance(data, list):
-        return [convert_enums_to_strings(item) for item in data]
-    elif isinstance(data, Enum):
+        return [make_yaml_safe(item) for item in data]
+    elif isinstance(data, Enum):  # ✅ Convert Enums to string values
         return data.value
-    return data
+    elif isinstance(data, (int, float, bool, str)):  # ✅ Allow common YAML-safe types
+        return data
+    else:
+        return str(data)  # ✅ Convert any unknown object to a string
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Scene Capture integration.
@@ -175,7 +171,7 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
 
             if state:
                 attributes = dict(state.attributes) if isinstance(state.attributes, dict) else {}  
-                attributes = convert_enums_to_strings(attributes)
+                attributes = make_yaml_safe(attributes)
                 attributes["state"] = str(state.state)  
                 updated_entities[entity] = attributes
 
