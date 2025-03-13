@@ -48,23 +48,29 @@ SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 
 _LOGGER = logging.getLogger(__name__)
 
-def make_serializable(data):
-    """Convert all data into a format that is YAML-safe."""
-    if data is None:
-        return None  # ✅ Keep None as YAML null
-    elif isinstance(data, dict):
-        return {make_serializable(k): make_serializable(v) for k, v in data.items()}
-    elif isinstance(data, list):
-        return [make_serializable(item) for item in data]
-    elif isinstance(data, tuple):
-        return list(data)  # ✅ Convert tuples to lists
-    elif isinstance(data, Enum):
-        return str(data.value)  # ✅ Convert Enums to string
-    elif isinstance(data, (int, float, bool, str)):  # ✅ Allow YAML-safe types
-        return data
-    else:
-        _LOGGER.warning(f"❗ Unexpected type `{type(data)}` for value `{data}`. Converting to string.")
-        return str(data)  # ✅ Convert unknown types to strings
+def make_serializable(data, path="root"):
+    """Convert all data into a format that is YAML-safe, logging problematic values."""
+    try:
+        if data is None:
+            return None  # ✅ Keep None as YAML null
+        elif isinstance(data, dict):
+            return {make_serializable(k, f"{path}.{k}"): make_serializable(v, f"{path}.{k}") for k, v in data.items()}
+        elif isinstance(data, list):
+            return [make_serializable(item, f"{path}[{i}]") for i, item in enumerate(data)]
+        elif isinstance(data, tuple):
+            return list(data)  # ✅ Convert tuples to lists
+        elif isinstance(data, Enum):
+            return str(data.value)  # ✅ Convert Enums to string
+        elif isinstance(data, (int, float, bool, str)):  # ✅ Allow YAML-safe types
+            return data
+        else:
+            _LOGGER.warning(f"⚠️ Unexpected type `{type(data)}` for `{path}` with value `{data}`. Converting to string.")
+            return str(data)  # ✅ Convert unknown types to strings
+    except Exception as e:
+        _LOGGER.error(f"🔥 Failed to process `{path}` with value `{data}`: {e}")
+        return str(data)  # ✅ Ensure it always returns something serializable
+
+
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Scene Capture integration.
@@ -173,11 +179,11 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 _LOGGER.warning(f"Scene Capture: Entity {entity} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
                 await asyncio.sleep(delay)
 
-            if state:
-                attributes = {key: make_serializable(value) for key, value in state.attributes.items()} if isinstance(state.attributes, dict) else {}
-                attributes["state"] = str(state.state)
-                updated_entities[entity] = attributes
-
+        if state:
+            _LOGGER.debug(f"🔍 Processing entity `{entity}` with attributes: {state.attributes}")
+            attributes = {key: make_serializable(value, f"state.attributes.{key}") for key, value in state.attributes.items()} if isinstance(state.attributes, dict) else {}
+            attributes["state"] = str(state.state)
+            updated_entities[entity] = attributes
 
         target_scene["entities"] = updated_entities
 
