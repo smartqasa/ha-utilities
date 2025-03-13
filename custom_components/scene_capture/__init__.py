@@ -8,16 +8,15 @@ Usage example:
 
 import aiofiles
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.util import async_lock
 import homeassistant.helpers.config_validation as cv
 import logging
 import os
 import voluptuous as vol
 import yaml
-
+from homeassistant.util import async_lock
 
 DOMAIN = "scene_capture"
-SERVICE = "update"
+SERVICE_UPDATE = "update"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -106,12 +105,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     hass.services.async_register(
         DOMAIN,
-        SERVICE,
+        SERVICE_UPDATE,
         handle_update,
-        schema=vol.Schema(
-            {vol.Required("entity_id"): cv.entity_id},
-            extra=vol.ALLOW_EXTRA
-        ),
+        schema=vol.Schema({}, extra=vol.ALLOW_EXTRA),
     )
     _LOGGER.info("Scene Capture integration set up")
     return True
