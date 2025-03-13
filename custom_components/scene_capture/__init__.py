@@ -49,24 +49,23 @@ SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 _LOGGER = logging.getLogger(__name__)
 
 def make_serializable(data):
-    """Convert data to a YAML-serializable form."""
-    if data is None:  # ✅ Convert None to YAML-compatible null
-        return None
+    """Convert all data into a format that is YAML-safe."""
+    if data is None:
+        return None  # ✅ Keep None as YAML null
     elif isinstance(data, dict):
-        return {k: make_serializable(v) for k, v in data.items()}
+        return {make_serializable(k): make_serializable(v) for k, v in data.items()}
     elif isinstance(data, list):
         return [make_serializable(item) for item in data]
-    elif isinstance(data, tuple):  # ✅ Convert tuples to lists
-        return list(data)
-    elif isinstance(data, Enum):  # ✅ Convert Enums to string values
-        return data.value
-    elif isinstance(data, (int, float, bool, str)):  # ✅ Allow common YAML-safe types
+    elif isinstance(data, tuple):
+        return list(data)  # ✅ Convert tuples to lists
+    elif isinstance(data, Enum):
+        return str(data.value)  # ✅ Convert Enums to string
+    elif isinstance(data, (int, float, bool, str)):  # ✅ Allow YAML-safe types
         return data
     else:
-        _LOGGER.debug(f"Unexpected type, converting to string: {data}")
-        return str(data)  # ✅ Convert any unknown object to a string
+        _LOGGER.warning(f"❗ Unexpected type `{type(data)}` for value `{data}`. Converting to string.")
+        return str(data)  # ✅ Convert unknown types to strings
 
-    
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Scene Capture integration.
 
@@ -175,9 +174,10 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 await asyncio.sleep(delay)
 
             if state:
-                attributes = {key: make_serializable(value) for key, value in state.attributes.items()} if isinstance(state.attributes, dict) else {}  # ✅ Ensure all values are YAML-safe
-                attributes["state"] = str(state.state)  # ✅ Ensure state is stored as a string
+                attributes = {key: make_serializable(value) for key, value in state.attributes.items()} if isinstance(state.attributes, dict) else {}
+                attributes["state"] = str(state.state)
                 updated_entities[entity] = attributes
+
 
         target_scene["entities"] = updated_entities
 
