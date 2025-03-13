@@ -49,22 +49,6 @@ SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 
 _LOGGER = logging.getLogger(__name__)
 
-def make_yaml_safe(data):
-    """Recursively convert non-YAML-safe types into compatible values."""
-    if isinstance(data, dict):
-        return {k: make_yaml_safe(v) for k, v in data.items()}
-    elif isinstance(data, list):
-        return [make_yaml_safe(item) for item in data]
-    elif isinstance(data, Enum):  # ✅ Convert Enums to string values
-        return data.value
-    elif isinstance(data, (int, float, bool, str)):  # ✅ Allow common YAML-safe types
-        return data
-    elif hasattr(data, "__str__"):  # ✅ Convert objects to strings if possible
-        return str(data)
-    else:
-        return repr(data)  # ✅ Fallback: Represent the object as a string
-
-
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Scene Capture integration.
 
@@ -173,9 +157,10 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 await asyncio.sleep(delay)
 
             if state:
-                attributes = deepcopy(state.attributes) if isinstance(state.attributes, dict) else {}  # ✅ Deep copy
-                attributes["state"] = str(state.state)  # ✅ Now it's a mutable dictionary
+                attributes = {key: value for key, value in state.attributes.items()} if isinstance(state.attributes, dict) else {}  # ✅ Create a fresh copy
+                attributes["state"] = str(state.state)  # ✅ Now it's fully mutable
                 updated_entities[entity] = attributes
+
 
         target_scene["entities"] = updated_entities
 
