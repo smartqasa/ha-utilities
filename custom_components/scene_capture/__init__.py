@@ -50,7 +50,9 @@ _LOGGER = logging.getLogger(__name__)
 
 def make_serializable(data):
     """Convert data to a YAML-serializable form."""
-    if isinstance(data, dict):
+    if data is None:  # ✅ Convert None to YAML-compatible null
+        return None
+    elif isinstance(data, dict):
         return {k: make_serializable(v) for k, v in data.items()}
     elif isinstance(data, list):
         return [make_serializable(item) for item in data]
@@ -63,6 +65,7 @@ def make_serializable(data):
     else:
         _LOGGER.debug(f"Unexpected type, converting to string: {data}")
         return str(data)  # ✅ Convert any unknown object to a string
+
     
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Scene Capture integration.
@@ -175,7 +178,6 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 attributes = {key: make_serializable(value) for key, value in state.attributes.items()} if isinstance(state.attributes, dict) else {}  # ✅ Ensure all values are YAML-safe
                 attributes["state"] = str(state.state)  # ✅ Ensure state is stored as a string
                 updated_entities[entity] = attributes
-
 
         target_scene["entities"] = updated_entities
 
