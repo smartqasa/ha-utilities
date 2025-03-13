@@ -59,8 +59,11 @@ def make_yaml_safe(data):
         return data.value
     elif isinstance(data, (int, float, bool, str)):  # ✅ Allow common YAML-safe types
         return data
+    elif hasattr(data, "__str__"):  # ✅ Convert objects to strings if possible
+        return str(data)
     else:
-        return str(data)  # ✅ Convert any unknown object to a string
+        return repr(data)  # ✅ Fallback: Represent the object as a string
+
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Scene Capture integration.
@@ -170,9 +173,9 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 await asyncio.sleep(delay)
 
             if state:
-                attributes = dict(state.attributes) if isinstance(state.attributes, dict) else {}  
-                attributes = make_yaml_safe(attributes)
-                attributes["state"] = str(state.state)  
+                state_dict = state.as_dict()  # ✅ Convert state to HA's safe format
+                attributes = state_dict.get("attributes", {})  # ✅ Extract YAML-safe attributes
+                attributes["state"] = str(state.state)  # ✅ Ensure state is stored as a string
                 updated_entities[entity] = attributes
 
         target_scene["entities"] = updated_entities
