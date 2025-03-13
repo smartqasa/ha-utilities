@@ -7,7 +7,6 @@ Usage example:
 """
 
 import aiofiles
-import asyncio
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.util import async_lock
 import homeassistant.helpers.config_validation as cv
