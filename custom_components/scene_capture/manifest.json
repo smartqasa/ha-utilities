@@ -1,6 +1,7 @@
 {
   "domain": "scene_capture",
   "name": "Scene Capture",
+  "logo": "custom_components/scene_capture/icon.png",
   "version": "0.2.0",
   "documentation": "https://github.com/smartqasa/scene_capture",
   "issue_tracker": "https://github.com/smartqasa/scene_capture/issues",
