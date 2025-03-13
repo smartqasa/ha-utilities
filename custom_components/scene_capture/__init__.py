@@ -173,9 +173,8 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 await asyncio.sleep(delay)
 
             if state:
-                state_dict = state.as_dict()  # ✅ Convert state to HA's safe format
-                attributes = state_dict.get("attributes", {})  # ✅ Extract YAML-safe attributes
-                attributes["state"] = str(state.state)  # ✅ Ensure state is stored as a string
+                attributes = dict(state.attributes) if isinstance(state.attributes, dict) else {}  # ✅ Make a copy
+                attributes["state"] = str(state.state)  # ✅ Now it's a mutable dictionary
                 updated_entities[entity] = attributes
 
         target_scene["entities"] = updated_entities
