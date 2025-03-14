@@ -18,7 +18,7 @@ in a specified scene and persist them to scenes.yaml.
 
 Usage example:
   # In a script or automation
-  service: scene.update
+  service: scene_capture.update
   target:
     entity_id: scene.living_room
 
@@ -28,7 +28,7 @@ Configuration example:
     enabled: true  # Optional, defaults to true
 """
 
-DOMAIN = "scene"
+DOMAIN = "scene_capture"
 SERVICE = "update"
 
 CAPTURE_LOCK = asyncio.Lock()
