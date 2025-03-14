@@ -162,7 +162,8 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             _LOGGER.error(f"Scene Capture: Scene {scene_id} not found in scenes.yaml")
             return
 
-        updated_entities = {}
+        updated_entities = target_scene.get("entities", {}).copy()  # Preserve existing entities
+
         for entity in target_scene.get("entities", {}):
             max_attempts = 3
             state = None
@@ -179,13 +180,13 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 _LOGGER.warning(f"Scene Capture: Entity {entity} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
                 await asyncio.sleep(delay)
 
-        if state:
-            _LOGGER.debug(f"🔍 Processing entity `{entity}` with attributes: {state.attributes}")
-            attributes = {key: make_serializable(value, f"state.attributes.{key}") for key, value in state.attributes.items()} if isinstance(state.attributes, dict) else {}
-            attributes["state"] = str(state.state)
-            updated_entities[entity] = attributes
+            if state:
+                _LOGGER.debug(f"🔍 Processing entity `{entity}` with attributes: {state.attributes}")
+                attributes = {key: make_serializable(value, f"state.attributes.{key}") for key, value in state.attributes.items()} if isinstance(state.attributes, dict) else {}
+                attributes["state"] = str(state.state)
+                updated_entities[entity] = attributes  # ✅ Ensure accumulation, not overwriting
 
-        target_scene["entities"] = updated_entities
+        target_scene["entities"] = updated_entities  # ✅ Update scene with all entities
 
         try:
             yaml_content = yaml.safe_dump(scenes_config, default_flow_style=False, allow_unicode=True, sort_keys=False)
