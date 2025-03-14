@@ -11,7 +11,7 @@ import yaml
 
 """
 Home Assistant custom integration for recapturing the state and attributes of
-the entities of a pre-exsting scene.
+the entities of a pre-existing scene.
 
 This integration provides a service to capture the current states of entities
 in a specified scene and persist them to scenes.yaml.
@@ -48,13 +48,14 @@ SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 
 _LOGGER = logging.getLogger(__name__)
 
+
 def make_serializable(data, path="root"):
     """Convert all data into a format that is YAML-safe, logging problematic values."""
     try:
         if data is None:
             return None  # ✅ Keep None as YAML null
         elif isinstance(data, dict):
-            return {make_serializable(k, f"{path}.{k}"): make_serializable(v, f"{path}.{k}") for k, v in data.items()}
+            return {k: make_serializable(v, f"{path}.{k}") for k, v in data.items()}
         elif isinstance(data, list):
             return [make_serializable(item, f"{path}[{i}]") for i, item in enumerate(data)]
         elif isinstance(data, tuple):
@@ -69,7 +70,6 @@ def make_serializable(data, path="root"):
     except Exception as e:
         _LOGGER.error(f"🔥 Failed to process `{path}` with value `{data}`: {e}")
         return str(data)  # ✅ Ensure it always returns something serializable
-
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -125,6 +125,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("Scene Capture: Service registered successfully")
     return True
 
+
 async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
     """Capture current entity states into the scene and persist to scenes.yaml.
 
@@ -162,7 +163,7 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             _LOGGER.error(f"Scene Capture: Scene {scene_id} not found in scenes.yaml")
             return
 
-        updated_entities = target_scene.get("entities", {}).copy()  # Preserve existing entities
+        updated_entities = target_scene.get("entities", {}).copy()  # ✅ Preserve all entities
 
         for entity in target_scene.get("entities", {}):
             max_attempts = 3
@@ -182,11 +183,15 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
 
             if state:
                 _LOGGER.debug(f"🔍 Processing entity `{entity}` with attributes: {state.attributes}")
-                attributes = {key: make_serializable(value, f"state.attributes.{key}") for key, value in state.attributes.items()} if isinstance(state.attributes, dict) else {}
+                attributes = {
+                    key: make_serializable(value, f"state.attributes.{key}") 
+                    for key, value in state.attributes.items()
+                } if isinstance(state.attributes, dict) else {}
+                
                 attributes["state"] = str(state.state)
-                updated_entities[entity] = attributes  # ✅ Ensure accumulation, not overwriting
+                updated_entities[entity] = attributes  # ✅ Accumulate all entities
 
-        target_scene["entities"] = updated_entities  # ✅ Update scene with all entities
+        target_scene["entities"] = updated_entities  # ✅ Ensure all entities are updated
 
         try:
             yaml_content = yaml.safe_dump(scenes_config, default_flow_style=False, allow_unicode=True, sort_keys=False)
@@ -195,7 +200,7 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             async with aiofiles.open(scenes_file, "w", encoding="utf-8") as f:
                 await f.write(yaml_content)
             await hass.services.async_call("scene", "reload")
-            _LOGGER.info(f"Scene Capture: Captured and persisted scene {scene_id}")
+            _LOGGER.info(f"Scene Capture: Captured and persisted scene {scene_id} with {len(updated_entities)} entities")
         except Exception as e:
             _LOGGER.error(f"Scene Capture: Failed to update scenes.yaml: {str(e)}")
             return
