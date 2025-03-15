@@ -30,6 +30,7 @@ Configuration example:
 
 DOMAIN = "scene_capture"
 SERVICE_UPDATE = "update"
+
 CAPTURE_LOCK = asyncio.Lock()
 
 CONFIG_SCHEMA = vol.Schema(
@@ -48,28 +49,27 @@ SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 _LOGGER = logging.getLogger(__name__)
 
 
-def make_serializable(data):
-    """Convert all data into a format that is YAML-safe."""
+def make_serializable(data, path="root"):
+    """Convert all data into a format that is YAML-safe, logging problematic values."""
     try:
         if data is None:
             return None  # ✅ Keep None as YAML null
         elif isinstance(data, dict):
-            return {k: make_serializable(v) for k, v in data.items()}
+            return {k: make_serializable(v, f"{path}.{k}") for k, v in data.items()}
         elif isinstance(data, list):
-            return [make_serializable(item) for item in data]
+            return [make_serializable(item, f"{path}[{i}]") for i, item in enumerate(data)]
         elif isinstance(data, tuple):
             return list(data)  # ✅ Convert tuples to lists
         elif isinstance(data, Enum):
             return str(data.value)  # ✅ Convert Enums to string
-        elif isinstance(data, (int, float, bool, str)):  # ✅ YAML-safe types
+        elif isinstance(data, (int, float, bool, str)):  # ✅ Allow YAML-safe types
             return data
         else:
-            _LOGGER.warning(f"⚠️ Unexpected type `{type(data)}` with value `{data}`. Converting to string.")
+            _LOGGER.warning(f"⚠️ Unexpected type `{type(data)}` for `{path}` with value `{data}`. Converting to string.")
             return str(data)  # ✅ Convert unknown types to strings
     except Exception as e:
-        _LOGGER.error(f"🔥 Failed to process value `{data}`: {e}")
+        _LOGGER.error(f"🔥 Failed to process `{path}` with value `{data}`: {e}")
         return str(data)  # ✅ Ensure it always returns something serializable
-
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -166,19 +166,19 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
         updated_entities = target_scene.get("entities", {}).copy()  # ✅ Preserve all entities
 
         for entity in target_scene.get("entities", {}):
-            MAX_ATTEMPTS = 3
+            max_attempts = 3
             state = None
 
-            for attempt in range(MAX_ATTEMPTS):
+            for attempt in range(max_attempts):
                 state = await hass.async_add_executor_job(hass.states.get, entity)
                 if state and state.state is not None:
                     break
                 
                 delay = 0.25 * (2 ** attempt)
-                if attempt == MAX_ATTEMPTS - 1:
-                    _LOGGER.warning(f"Scene Capture: Entity {entity} did not load after {MAX_ATTEMPTS} attempts, skipping.")
+                if attempt == max_attempts - 1:
+                    _LOGGER.warning(f"Scene Capture: Entity {entity} did not load after {max_attempts} attempts, skipping.")
                     break
-                _LOGGER.warning(f"Scene Capture: Entity {entity} not available, retrying ({attempt + 1}/{MAX_ATTEMPTS}) in {delay:.1f}s...")
+                _LOGGER.warning(f"Scene Capture: Entity {entity} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
                 await asyncio.sleep(delay)
 
             if state:

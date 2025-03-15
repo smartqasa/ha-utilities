@@ -1,10 +1,10 @@
 {
-  "domain": "scene_capture",
   "name": "Scene Capture",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "documentation": "https://github.com/smartqasa/scene_capture",
   "issue_tracker": "https://github.com/smartqasa/scene_capture/issues",
   "codeowners": ["@smartqasa"],
+  "domain": "scene_capture",
   "integration_type": "service",
   "iot_class": "assumed_state",
   "dependencies": ["scene"],
