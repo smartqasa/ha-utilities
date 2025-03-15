@@ -6,6 +6,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 import homeassistant.helpers.config_validation as cv
 import logging
 import os
+import tempfile 
 import voluptuous as vol
 import yaml
 
@@ -21,16 +22,14 @@ Usage example:
   service: scene_capture.update
   target:
     entity_id: scene.living_room
-
-Configuration example:
-  # configuration.yaml
-  scene_capture:
-    enabled: true  # Optional, defaults to true
+  # OR
+  service: scene_capture.update
+  data:
+    entity_id: scene.living_room
 """
 
 DOMAIN = "scene_capture"
 SERVICE_UPDATE = "update"
-
 CAPTURE_LOCK = asyncio.Lock()
 
 CONFIG_SCHEMA = vol.Schema(
@@ -48,7 +47,6 @@ SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 
 _LOGGER = logging.getLogger(__name__)
 
-
 def make_serializable(data):
     """Convert all data into a format that is YAML-safe."""
     if data is None:
@@ -65,32 +63,17 @@ def make_serializable(data):
         return data
     else:
         _LOGGER.warning(f"Scene Capture: Converting unexpected type `{type(data).__name__}` with value `{data}` to string")
-        return str(data)  # Fallback for unknown types
+        return str(data)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Set up the Scene Capture integration.
-
-    Args:
-        hass: The HomeAssistant instance
-        config: Configuration dictionary for the integration
-
-    Returns:
-        bool: True if setup was successful, False otherwise
-    """
+    """Set up the Scene Capture integration."""
     conf = config.get(DOMAIN, {})
     if not conf.get("enabled", True):
         _LOGGER.info("Scene Capture: Integration disabled via configuration")
         return False
 
     async def handle_capture(call: ServiceCall) -> None:
-        """Handle the scene capture service call.
-
-        Args:
-            call: The service call object containing the entity_id
-
-        Captures the current states of entities in the specified scene
-        and updates scenes.yaml accordingly.
-        """
+        """Handle the scene capture service call."""
         entity_id = call.data.get("entity_id")
 
         if isinstance(entity_id, list):
@@ -120,19 +103,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("Scene Capture: Service registered successfully")
     return True
 
-
 async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
-    """Capture current entity states into the scene and persist to scenes.yaml.
-
-    Args:
-        hass: The HomeAssistant instance
-        scene_id: The ID of the scene to capture (from scene entity attributes)
-
-    Updates the specified scene in scenes.yaml with current entity states,
-    retrying up to 3 times per entity if states are unavailable.
-    """
+    """Capture current entity states into the scene and persist to scenes.yaml."""
     _LOGGER.debug(f"Scene Capture: Capturing scene with scene_id {scene_id}")
-
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
 
     async with CAPTURE_LOCK:
@@ -142,7 +115,6 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 scenes_config = yaml.safe_load(content) or []
                 if not isinstance(scenes_config, list):
                     raise ValueError("scenes.yaml does not contain a list of scenes")
-
                 for scene in scenes_config:
                     if not isinstance(scene, dict) or "id" not in scene or "entities" not in scene:
                         raise ValueError("Each scene must be a dict with 'id' and 'entities' keys")
@@ -158,7 +130,7 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             _LOGGER.error(f"Scene Capture: Scene {scene_id} not found in scenes.yaml")
             return
 
-        updated_entities = target_scene.get("entities", {}).copy()  # ✅ Preserve all entities
+        updated_entities = target_scene.get("entities", {}).copy()
 
         for entity in target_scene.get("entities", {}):
             max_attempts = 3
@@ -179,23 +151,29 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             if state:
                 _LOGGER.debug(f"🔍 Processing entity `{entity}` with attributes: {state.attributes}")
                 attributes = {
-                    key: make_serializable(value) 
+                    key: make_serializable(value)
                     for key, value in state.attributes.items()
                 } if isinstance(state.attributes, dict) else {}
-                
                 attributes["state"] = str(state.state)
-                updated_entities[entity] = attributes  # ✅ Accumulate all entities
+                updated_entities[entity] = attributes
 
-        target_scene["entities"] = updated_entities  # ✅ Ensure all entities are updated
+        target_scene["entities"] = updated_entities
 
         try:
             yaml_content = yaml.safe_dump(scenes_config, default_flow_style=False, allow_unicode=True, sort_keys=False)
             if not yaml_content.strip():
                 raise ValueError("Serialized YAML content is empty")
-            async with aiofiles.open(scenes_file, "w", encoding="utf-8") as f:
+            
+            # Two-step write: temp file then atomic move
+            temp_file = os.path.join(tempfile.gettempdir(), f"scenes_{scene_id}_{os.getpid()}.tmp")
+            async with aiofiles.open(temp_file, "w", encoding="utf-8") as f:
                 await f.write(yaml_content)
+            os.replace(temp_file, scenes_file)  # Atomic move
+
             await hass.services.async_call("scene", "reload")
             _LOGGER.info(f"Scene Capture: Captured and persisted scene {scene_id} with {len(updated_entities)} entities")
         except Exception as e:
             _LOGGER.error(f"Scene Capture: Failed to update scenes.yaml: {str(e)}")
+            if 'temp_file' in locals() and os.path.exists(temp_file):
+                os.remove(temp_file)  # Cleanup temp file on failure
             return
