@@ -179,7 +179,7 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             if state:
                 _LOGGER.debug(f"🔍 Processing entity `{entity}` with attributes: {state.attributes}")
                 attributes = {
-                    key: make_serializable(value, f"state.attributes.{key}") 
+                    key: make_serializable(value) 
                     for key, value in state.attributes.items()
                 } if isinstance(state.attributes, dict) else {}
                 
