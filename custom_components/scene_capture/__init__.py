@@ -164,10 +164,10 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             if not yaml_content.strip():
                 raise ValueError("Serialized YAML content is empty")
             
-            # Two-step write: temp file then atomic move
-            temp_file = os.path.join(tempfile.gettempdir(), f"scenes_{scene_id}_{os.getpid()}.tmp")
-            async with aiofiles.open(temp_file, "w", encoding="utf-8") as f:
-                await f.write(yaml_content)
+            # Use temp file in same directory as scenes.yaml
+            with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', prefix='scenes_', suffix='.tmp', dir=hass.config.config_dir, delete=False) as temp_f:
+                temp_file = temp_f.name
+                await aiofiles.open(temp_file, "w", encoding="utf-8").write(yaml_content)  # Async write
             os.replace(temp_file, scenes_file)  # Atomic move
 
             await hass.services.async_call("scene", "reload")
@@ -175,5 +175,5 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
         except Exception as e:
             _LOGGER.error(f"Scene Capture: Failed to update scenes.yaml: {str(e)}")
             if 'temp_file' in locals() and os.path.exists(temp_file):
-                os.remove(temp_file)  # Cleanup temp file on failure
+                os.remove(temp_file)
             return
