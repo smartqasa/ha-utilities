@@ -64,8 +64,8 @@ def make_serializable(data):
     elif isinstance(data, (int, float, bool, str)):
         return data
     else:
-        return str(data)
-
+        _LOGGER.warning(f"Scene Capture: Converting unexpected type `{type(data).__name__}` with value `{data}` to string")
+        return str(data)  # Fallback for unknown types
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Scene Capture integration.
