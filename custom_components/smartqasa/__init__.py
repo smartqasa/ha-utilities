@@ -23,18 +23,11 @@ Usage examples:
   service: smartqasa.scene_get
   target:
     entity_id: scene.living_room
-  # OR
-  service: smartqasa.scene_get
-  data:
-    entity_id: scene.living_room
+  response_variable: entity_list
 
   # Update scene states
   service: smartqasa.scene_update
   target:
-    entity_id: scene.living_room
-  # OR
-  service: smartqasa.scene_update
-  data:
     entity_id: scene.living_room
 
 Configuration example:
@@ -131,32 +124,51 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         _LOGGER.info("SmartQasa: Integration disabled via configuration")
         return False
 
-    async def handle_scene_get(call: ServiceCall) -> None:
-        """Handle the scene_get service call."""
-        entity_id = call.data["entity_id"]  # Required by schema
+    async def handle_scene_get(call: ServiceCall):
+        """Handle the scene_get service call and return entity list."""
+        entity_id = call.data.get("entity_id")
+        if not entity_id:
+            _LOGGER.error("SmartQasa: No entity_id provided for scene_get")
+            return []
+
         scene_id, target_scene = await retrieve_scene(hass, entity_id)
         if not target_scene:
-            hass.bus.async_fire("smartqasa_scene_entities", {"scene_id": scene_id or "unknown", "entity_id": entity_id, "entities": [], "error": "Scene retrieval failed"})
-            return
+            return []
 
         entities = list(target_scene.get("entities", {}).keys())
         _LOGGER.info(f"SmartQasa: Retrieved {len(entities)} entities for scene {entity_id} (ID: {scene_id}): {entities}")
-        hass.bus.async_fire("smartqasa_scene_entities", {"scene_id": scene_id, "entity_id": entity_id, "entities": entities})
+        return entities
 
     async def handle_scene_update(call: ServiceCall) -> None:
         """Handle the scene_update service call."""
-        entity_id = call.data["entity_id"]  # Required by schema
-        scene_id, target_scene = await retrieve_scene(hass, entity_id)
-        if not target_scene:
+        entity_id = call.data.get("entity_id")
+        if not entity_id:
+            _LOGGER.error("SmartQasa: No entity_id provided for scene_update")
             return
 
-        await update_scene_states(hass, scene_id, target_scene)
+        if isinstance(entity_id, list):
+            entity_id = entity_id[0]
+        elif not isinstance(entity_id, str):
+            _LOGGER.error(f"SmartQasa: Invalid entity_id type, expected string but got {type(entity_id)}")
+            return
+        if not entity_id.startswith("scene."):
+            _LOGGER.error(f"SmartQasa: Invalid entity_id {entity_id}, must start with 'scene.'")
+            return
+
+        state = hass.states.get(entity_id)
+        if not state or "id" not in state.attributes:
+            _LOGGER.error(f"SmartQasa: No 'id' found in attributes for entity_id {entity_id}")
+            return
+        scene_id = state.attributes["id"]
+
+        await update_scene_states(hass, scene_id)
 
     hass.services.async_register(
         DOMAIN,
         SERVICE_SCENE_GET,
         handle_scene_get,
         schema=SCENE_GET_SCHEMA,
+        supports_response=vol.SERVICE_RESPONSE_ONLY,  # Enable response support
     )
     hass.services.async_register(
         DOMAIN,
@@ -167,7 +179,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.info("SmartQasa: Services registered successfully")
     return True
 
-async def update_scene_states(hass: HomeAssistant, scene_id: str, target_scene: dict) -> None:
+async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
     """Update current entity states into the scene and persist to scenes.yaml."""
     _LOGGER.debug(f"SmartQasa: Updating scene with scene_id {scene_id}")
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
@@ -189,11 +201,10 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str, target_scene: 
             _LOGGER.error(f"SmartQasa: Failed to load scenes.yaml: {str(e)}")
             return
 
-        # Update the target scene in the config
-        for i, scene in enumerate(scenes_config):
-            if scene["id"] == scene_id:
-                scenes_config[i] = target_scene
-                break
+        target_scene = next((scene for scene in scenes_config if scene["id"] == scene_id), None)
+        if not target_scene:
+            _LOGGER.error(f"SmartQasa: Scene {scene_id} not found in scenes.yaml")
+            return
 
         updated_entities = target_scene.get("entities", {}).copy()
         for entity in target_scene.get("entities", {}):
