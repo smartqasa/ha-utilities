@@ -1,8 +1,6 @@
 {
   "name": "SmartQasa Home Assistant Utilities",
   "version": "0.4.0",
-  "logo": "/custom_components/smartqasa/logo.png",
-  "icon": "mdi:toolbox",
   "documentation": "https://github.com/smartqasa/ha-utilities",
   "issue_tracker": "https://github.com/smartqasa/ha-utilities/issues",
   "codeowners": ["@smartqasa"],
