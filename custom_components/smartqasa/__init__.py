@@ -134,21 +134,21 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         _LOGGER.info("SmartQasa: Integration disabled via configuration")
         return False
 
-    async def handle_scene_get(call: ServiceCall) -> None:
-        """Handle the scene_get service call."""
-        entity_id = call.data["entity_id"][0]
+    async def handle_scene_get(call: ServiceCall):
+        """Handle the scene_get service call and return entity list."""
+        entity_id = call.data["entity_id"][0]  # Single string from list
         scene_id, target_scene = await retrieve_scene(hass, entity_id)
         if not target_scene:
-            hass.bus.async_fire("smartqasa_scene_entities", {"scene_id": scene_id or "unknown", "entity_id": entity_id, "entities": [], "error": "Scene retrieval failed"})
-            return
+            _LOGGER.debug(f"SmartQasa: No target scene found for {entity_id}")
+            return []
 
         entities = list(target_scene.get("entities", {}).keys())
         _LOGGER.info(f"SmartQasa: Retrieved {len(entities)} entities for scene {entity_id} (ID: {scene_id}): {entities}")
-        hass.bus.async_fire("smartqasa_scene_entities", {"scene_id": scene_id, "entity_id": entity_id, "entities": entities})
+        return entities
 
     async def handle_scene_update(call: ServiceCall) -> None:
         """Handle the scene_update service call."""
-        entity_id = call.data["entity_id"][0]
+        entity_id = call.data["entity_id"][0]  # Single string from list
         scene_id, target_scene = await retrieve_scene(hass, entity_id)
         if not target_scene:
             return
@@ -160,6 +160,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         SERVICE_SCENE_GET,
         handle_scene_get,
         schema=SERVICE_SCHEMA,
+        supports_response=vol.SERVICE_RESPONSE_ONLY,
     )
     hass.services.async_register(
         DOMAIN,
