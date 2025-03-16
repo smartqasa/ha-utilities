@@ -1,3 +1,9 @@
+scene_get:
+  name: Get Scene
+  description: Retrieves and returns the entities associated with a given scene.
+  target:
+    entity:
+      domain: scene
 scene_update:
   name: Update Scene
   description: Updates the states and attributes of a scene's entities and persists them to scenes.yaml.

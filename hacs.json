@@ -1,5 +1,5 @@
 {
-  "name": "SmartQasa Home Assistant Utilities",
+  "name": "SmartQasa HA Utilities",
   "integration": true,
   "domains": ["smartqasa"],
   "iot_class": "Assumed State",
