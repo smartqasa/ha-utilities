@@ -64,7 +64,7 @@ CONFIG_SCHEMA = vol.Schema(
 
 SERVICE_SCHEMA = vol.Schema(
     {
-        vol.Required("entity_id"): vol.All(cv.ensure_list, [cv.entity_id])
+        vol.Required("entity_id"): vol.All(cv.ensure_list, vol.Length(min=1, max=1), [cv.entity_id])
     },
 )
 
