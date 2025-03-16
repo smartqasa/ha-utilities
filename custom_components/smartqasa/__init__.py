@@ -8,7 +8,8 @@ import tempfile
 import voluptuous as vol
 import yaml
 
-from homeassistant.core import HomeAssistant, ServiceCall, SERVICE_RESPONSE_ONLY
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.const import SERVICE_RESPONSE_ONLY
 import homeassistant.helpers.config_validation as cv
 
 """
