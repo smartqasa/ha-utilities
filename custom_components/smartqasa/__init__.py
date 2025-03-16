@@ -136,7 +136,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     async def handle_scene_get(call: ServiceCall) -> None:
         """Handle the scene_get service call."""
-        entity_id = call.data["entity_id"]
+        entity_id = call.data["entity_id"][0]
         scene_id, target_scene = await retrieve_scene(hass, entity_id)
         if not target_scene:
             hass.bus.async_fire("smartqasa_scene_entities", {"scene_id": scene_id or "unknown", "entity_id": entity_id, "entities": [], "error": "Scene retrieval failed"})
@@ -148,7 +148,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     async def handle_scene_update(call: ServiceCall) -> None:
         """Handle the scene_update service call."""
-        entity_id = call.data["entity_id"]
+        entity_id = call.data["entity_id"][0]
         scene_id, target_scene = await retrieve_scene(hass, entity_id)
         if not target_scene:
             return
