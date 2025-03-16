@@ -62,8 +62,11 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
-SCENE_GET_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
-SCENE_UPDATE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
+SERVICE_SCHEMA = vol.Schema(
+    {
+        vol.Required("entity_id"): vol.All(cv.ensure_list, [cv.entity_id])
+    },
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -133,8 +136,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     async def handle_scene_get(call: ServiceCall) -> None:
         """Handle the scene_get service call."""
-        _LOGGER.debug(f"SmartQasa: scene_get call.data: {call.data}")
-        entity_id = call.data.get("entity_id")
+        entity_id = call.data["entity_id"]
         scene_id, target_scene = await retrieve_scene(hass, entity_id)
         if not target_scene:
             hass.bus.async_fire("smartqasa_scene_entities", {"scene_id": scene_id or "unknown", "entity_id": entity_id, "entities": [], "error": "Scene retrieval failed"})
@@ -157,13 +159,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         DOMAIN,
         SERVICE_SCENE_GET,
         handle_scene_get,
-        schema=SCENE_GET_SCHEMA,
+        schema=SERVICE_SCHEMA,
     )
     hass.services.async_register(
         DOMAIN,
         SERVICE_SCENE_UPDATE,
         handle_scene_update,
-        schema=SCENE_UPDATE_SCHEMA,
+        schema=SERVICE_SCHEMA,
     )
     _LOGGER.info("SmartQasa: Services registered successfully")
     return True

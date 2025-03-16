@@ -4,6 +4,14 @@ scene_get:
   target:
     entity:
       domain: scene
+      multiple: false
+  response:
+    optional: false
+    schema:
+      type: array
+      items:
+        type: string
+        example: "light.kitchen_lights"
 
 scene_update:
   name: Update Scene
@@ -11,3 +19,4 @@ scene_update:
   target:
     entity:
       domain: scene
+      multiple: false
