@@ -4,13 +4,6 @@ scene_get:
   target:
     entity:
       domain: scene
-  response:
-    optional: false
-    schema:
-      type: array
-      items:
-        type: string
-        example: "light.kitchen_lights"
 
 scene_update:
   name: Update Scene
