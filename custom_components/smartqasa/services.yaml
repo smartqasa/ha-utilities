@@ -10,7 +10,7 @@ scene_get:
       type: array
       items:
         type: string
-        example: "light.living_room"
+        example: "light.living_room_lights"
 scene_update:
   name: Update Scene
   description: Updates the states and attributes of a scene's entities and persists them to scenes.yaml.
