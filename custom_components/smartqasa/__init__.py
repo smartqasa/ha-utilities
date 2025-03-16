@@ -8,7 +8,7 @@ import tempfile
 import voluptuous as vol
 import yaml
 
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, SERVICE_RESPONSE_ONLY
 import homeassistant.helpers.config_validation as cv
 
 """
@@ -160,7 +160,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         SERVICE_SCENE_GET,
         handle_scene_get,
         schema=SERVICE_SCHEMA,
-        supports_response=vol.SERVICE_RESPONSE_ONLY,
+        supports_response=SERVICE_RESPONSE_ONLY,
     )
     hass.services.async_register(
         DOMAIN,
