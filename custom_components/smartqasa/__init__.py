@@ -144,7 +144,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
         entities = list(target_scene.get("entities", {}).keys())
         _LOGGER.info(f"SmartQasa: Retrieved {len(entities)} entities for scene {entity_id} (ID: {scene_id}): {entities}")
-        return entities
+        return {"entities": entities}
 
     async def handle_scene_update(call: ServiceCall) -> None:
         """Handle the scene_update service call."""
