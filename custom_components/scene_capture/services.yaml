@@ -1,6 +1,6 @@
-update:
+scene_update:
   name: Update Scene
-  description: Updates the states and attributes of a scene's entities.
+  description: Updates the states and attributes of a scene's entities and persists them to scenes.yaml.
   target:
     entity:
       domain: scene

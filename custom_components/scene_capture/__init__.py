@@ -11,26 +11,32 @@ import voluptuous as vol
 import yaml
 
 """
-Home Assistant custom integration for recapturing the state and attributes of
-the entities of a pre-existing scene.
+Home Assistant custom integration providing various smart home utilities.
 
-This integration provides a service to capture the current states of entities
-in a specified scene and persist them to scenes.yaml.
+This integration provides a service to update the current states of entities
+in a specified scene and persist them to scenes.yaml, with plans for additional
+services under the smartqasa domain.
 
 Usage example:
   # In a script or automation
-  service: scene_capture.update
+  service: smartqasa.scene_update
   target:
+    entity_id: scene.living_room
+  # OR
+  service: smartqasa.scene_update
+  data:
     entity_id: scene.living_room
 
 Configuration example:
   # configuration.yaml
-  scene_capture:
+  smartqasa:
     enabled: true  # Optional, defaults to true
+
+Repository: https://github.com/smartqasa/ha-utilities
 """
 
-DOMAIN = "scene_capture"
-SERVICE_UPDATE = "update"
+DOMAIN = "smartqasa"
+SERVICE_SCENE_UPDATE = "scene_update"
 
 CAPTURE_LOCK = asyncio.Lock()
 
@@ -63,68 +69,53 @@ def make_serializable(data):
         return data.value
     elif isinstance(data, (int, float, bool, str)):
         return data
-    elif hasattr(data, 'value'):  # Handles HA enums like ColorMode, LightEntityFeature
+    elif hasattr(data, 'value'):
         return data.value
     else:
         _LOGGER.warning(f"⚠️ Unexpected type {type(data)} with value {data}, converting to string.")
         return str(data)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Set up the Scene Capture integration.
-
-    Args:
-        hass: The HomeAssistant instance
-        config: Configuration dictionary for the integration
-
-    Returns:
-        bool: True if setup was successful, False otherwise
-    """
+    """Set up the SmartQasa integration."""
     conf = config.get(DOMAIN, {})
     if not conf.get("enabled", True):
-        _LOGGER.info("Scene Capture: Integration disabled via configuration")
+        _LOGGER.info("SmartQasa: Integration disabled via configuration")
         return False
 
-    async def handle_capture(call: ServiceCall) -> None:
-        """Handle the scene capture service call.
-
-        Args:
-            call: The service call object containing the entity_id
-
-        Captures the current states of entities in the specified scene
-        and updates scenes.yaml accordingly.
-        """
+    async def handle_scene_update(call: ServiceCall) -> None:
+        """Handle the scene_update service call."""
         entity_id = call.data.get("entity_id")
 
         if isinstance(entity_id, list):
             entity_id = entity_id[0]
         elif not isinstance(entity_id, str):
-            _LOGGER.error(f"Scene Capture: Invalid entity_id type, expected string but got {type(entity_id)}")
+            _LOGGER.error(f"SmartQasa: Invalid entity_id type, expected string but got {type(entity_id)}")
             return
         
         if not entity_id.startswith("scene."):
-            _LOGGER.error(f"Scene Capture: Invalid entity_id {entity_id}, must start with 'scene.'")
+            _LOGGER.error(f"SmartQasa: Invalid entity_id {entity_id}, must start with 'scene.'")
             return
         
         state = hass.states.get(entity_id)
         if not state or "id" not in state.attributes:
-            _LOGGER.error(f"Scene Capture: No 'id' found in attributes for entity_id {entity_id}")
+            _LOGGER.error(f"SmartQasa: No 'id' found in attributes for entity_id {entity_id}")
             return
         scene_id = state.attributes["id"]
 
-        await capture_scene_states(hass, scene_id)
+        await update_scene_states(hass, scene_id)
 
     hass.services.async_register(
         DOMAIN,
-        SERVICE_UPDATE,
-        handle_capture,
+        SERVICE_SCENE_UPDATE,
+        handle_scene_update,
         schema=SERVICE_SCHEMA,
     )
-    _LOGGER.info("Scene Capture: Service registered successfully")
+    _LOGGER.info("SmartQasa: Service registered successfully")
     return True
 
-async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
-    """Capture current entity states into the scene and persist to scenes.yaml."""
-    _LOGGER.debug(f"Scene Capture: Capturing scene with scene_id {scene_id}")
+async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
+    """Update current entity states into the scene and persist to scenes.yaml."""
+    _LOGGER.debug(f"SmartQasa: Updating scene with scene_id {scene_id}")
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
 
     async with CAPTURE_LOCK:
@@ -138,15 +129,15 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                     if not isinstance(scene, dict) or "id" not in scene or "entities" not in scene:
                         raise ValueError("Each scene must be a dict with 'id' and 'entities' keys")
         except FileNotFoundError:
-            _LOGGER.warning(f"Scene Capture: scenes.yaml not found, creating a new one.")
+            _LOGGER.warning(f"SmartQasa: scenes.yaml not found, creating a new one.")
             scenes_config = []
         except Exception as e:
-            _LOGGER.error(f"Scene Capture: Failed to load scenes.yaml: {str(e)}")
+            _LOGGER.error(f"SmartQasa: Failed to load scenes.yaml: {str(e)}")
             return
 
         target_scene = next((scene for scene in scenes_config if scene["id"] == scene_id), None)
         if not target_scene:
-            _LOGGER.error(f"Scene Capture: Scene {scene_id} not found in scenes.yaml")
+            _LOGGER.error(f"SmartQasa: Scene {scene_id} not found in scenes.yaml")
             return
 
         updated_entities = target_scene.get("entities", {}).copy()
@@ -162,9 +153,9 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 
                 delay = 0.25 * (2 ** attempt)
                 if attempt == max_attempts - 1:
-                    _LOGGER.warning(f"Scene Capture: Entity {entity} did not load after {max_attempts} attempts, skipping.")
+                    _LOGGER.warning(f"SmartQasa: Entity {entity} did not load after {max_attempts} attempts, skipping.")
                     break
-                _LOGGER.warning(f"Scene Capture: Entity {entity} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
+                _LOGGER.warning(f"SmartQasa: Entity {entity} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
                 await asyncio.sleep(delay)
 
             if state:
@@ -178,27 +169,24 @@ async def capture_scene_states(hass: HomeAssistant, scene_id: str) -> None:
 
         target_scene["entities"] = updated_entities
 
-        temp_file = None  # Ensure temp_file is defined for cleanup
+        temp_file = None
         try:
             yaml_content = yaml.safe_dump(scenes_config, default_flow_style=False, allow_unicode=True, sort_keys=False)
             if not yaml_content.strip():
                 raise ValueError("Serialized YAML content is empty")
             
-            # Create temp file in same directory as scenes.yaml
             with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', prefix='scenes_', suffix='.tmp', dir=hass.config.config_dir, delete=False) as temp_f:
-                temp_file = temp_f.name  # Get the temp file path
+                temp_file = temp_f.name
             
-            # Write asynchronously to temp file
             async with aiofiles.open(temp_file, "w", encoding="utf-8") as f:
                 await f.write(yaml_content)
             
-            # Atomic move to final location
             os.replace(temp_file, scenes_file)
 
             await hass.services.async_call("scene", "reload")
-            _LOGGER.info(f"Scene Capture: Captured and persisted scene {scene_id} with {len(updated_entities)} entities")
+            _LOGGER.info(f"SmartQasa: Updated and persisted scene {scene_id} with {len(updated_entities)} entities")
         except Exception as e:
-            _LOGGER.error(f"Scene Capture: Failed to update scenes.yaml: {str(e)}")
+            _LOGGER.error(f"SmartQasa: Failed to update scenes.yaml: {str(e)}")
             if temp_file and os.path.exists(temp_file):
                 os.remove(temp_file)
             return

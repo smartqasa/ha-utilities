@@ -1,7 +1,7 @@
 {
-  "name": "Scene Capture",
+  "name": "SmartQasa Home Assistant Utilities",
   "integration": true,
-  "domains": ["scene_capture"],
+  "domains": ["smartqasa"],
   "iot_class": "Assumed State",
   "render_readme": true
 }
