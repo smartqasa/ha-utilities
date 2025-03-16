@@ -62,8 +62,8 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
-SCENE_GET_SCHEMA = vol.Schema({vol.Required("entity_id"): cv.entity_id})
-SCENE_UPDATE_SCHEMA = vol.Schema({vol.Required("entity_id"): cv.entity_id})
+SCENE_GET_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
+SCENE_UPDATE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 
 _LOGGER = logging.getLogger(__name__)
 
