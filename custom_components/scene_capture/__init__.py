@@ -49,9 +49,8 @@ SERVICE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 
 _LOGGER = logging.getLogger(__name__)
 
-
 def make_serializable(data):
-    """Convert all data into a format that is YAML-safe."""
+    """Convert data into YAML-safe formats."""
     if data is None:
         return None
     elif isinstance(data, dict):
@@ -59,14 +58,16 @@ def make_serializable(data):
     elif isinstance(data, list):
         return [make_serializable(item) for item in data]
     elif isinstance(data, tuple):
-        return list(data)
+        return [make_serializable(item) for item in data]
     elif isinstance(data, Enum):
-        return str(data.value)
+        return data.value
     elif isinstance(data, (int, float, bool, str)):
         return data
+    elif hasattr(data, 'value'):  # Handles HA enums like ColorMode, LightEntityFeature
+        return data.value
     else:
-        _LOGGER.warning(f"Scene Capture: Converting unexpected type `{type(data).__name__}` with value `{data}` to string")
-        return str(data)  # Fallback for unknown types
+        _LOGGER.warning(f"⚠️ Unexpected type {type(data)} with value {data}, converting to string.")
+        return str(data)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Scene Capture integration.
