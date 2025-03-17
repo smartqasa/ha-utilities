@@ -77,7 +77,7 @@ def make_serializable(data):
     if isinstance(data, (str, int, float, bool, type(None))):
         return data  # Allow standard data types
     if isinstance(data, dict):
-        return {k: make_serializable(v) for k, v in data.items()}
+        return {str(k): make_serializable(v) for k, v in data.items()}
     if isinstance(data, list):
         return [make_serializable(item) for item in data]
     if isinstance(data, tuple):
@@ -86,7 +86,6 @@ def make_serializable(data):
     # Catch-all: Convert anything unexpected to a string
     _LOGGER.warning(f"⚠️ Unexpected type {type(data)} with value {data}, converting to string.")
     return str(data)
-
 
 async def retrieve_scene(hass: HomeAssistant, entity_id: str) -> tuple[str | None, dict | None]:
     """Retrieve the scene_id and target scene from an entity_id."""
