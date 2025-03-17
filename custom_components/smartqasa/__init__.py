@@ -82,10 +82,16 @@ def make_serializable(data):
         return [make_serializable(item) for item in data]
     elif isinstance(data, Enum):
         return data.value
-    elif isinstance(data, (int, float, bool, str)):
+    elif isinstance(data, int):  # Explicitly handle integers
+        return int(data)  # Forces to native Python int
+    elif isinstance(data, float):
+        return float(data)  # Forces to native Python float
+    elif isinstance(data, bool):
+        return bool(data)  # Forces to native Python bool
+    elif isinstance(data, str):
         return data
     elif hasattr(data, 'value'):
-        return data.value
+        return make_serializable(data.value)
     else:
         _LOGGER.warning(f"⚠️ Unexpected type {type(data)} with value {data}, converting to string.")
         return str(data)
