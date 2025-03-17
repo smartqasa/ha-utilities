@@ -139,8 +139,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         entity_id = call.data["entity_id"][0]
         scene_id, target_scene = await retrieve_scene(hass, entity_id)
         if not target_scene:
-            hass.bus.async_fire("smartqasa_scene_entities", {"scene_id": scene_id or "unknown", "entity_id": entity_id, "entities": [], "error": "Scene retrieval failed"})
-            return []
+            return {f"Scene not found for entity {entity_id}"}
 
         entities = list(target_scene.get("entities", {}).keys())
         _LOGGER.info(f"SmartQasa: Retrieved {len(entities)} entities for scene {entity_id} (ID: {scene_id}): {entities}")
@@ -151,6 +150,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         entity_id = call.data["entity_id"][0]
         scene_id, target_scene = await retrieve_scene(hass, entity_id)
         if not target_scene:
+            _LOGGER.error(f"SmartQasa: Scene not found for entity {entity_id}")
             return
 
         await update_scene_states(hass, scene_id, target_scene)
