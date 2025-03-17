@@ -86,9 +86,6 @@ def make_serializable(data):
     _LOGGER.warning(f"⚠️ Unexpected type {type(data)} with value {data}, converting to string.")
     return str(data)
 
-
-
-
 async def retrieve_scene(hass: HomeAssistant, entity_id: str) -> tuple[str | None, dict | None]:
     """Retrieve the scene_id and target scene from an entity_id."""
     if not isinstance(entity_id, str):
