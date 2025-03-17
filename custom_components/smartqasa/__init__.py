@@ -72,29 +72,20 @@ _LOGGER = logging.getLogger(__name__)
 
 def make_serializable(data):
     """Convert data into YAML-safe formats."""
-    if data is None:
-        return None
-    elif isinstance(data, dict):
-        return {k: make_serializable(v) for k, v in data.items()}
-    elif isinstance(data, list):
-        return [make_serializable(item) for item in data]
-    elif isinstance(data, tuple):
-        return [make_serializable(item) for item in data]
-    elif isinstance(data, Enum):
-        return data.value
-    elif isinstance(data, int):  # Explicitly handle integers
-        return int(data)  # Forces to native Python int
-    elif isinstance(data, float):
-        return float(data)  # Forces to native Python float
-    elif isinstance(data, bool):
-        return bool(data)  # Forces to native Python bool
-    elif isinstance(data, str):
+    if data is None or isinstance(data, (str, int, float, bool)):
         return data
-    elif hasattr(data, 'value'):
+    if isinstance(data, dict):
+        return {k: make_serializable(v) for k, v in data.items()}
+    if isinstance(data, (list, tuple)):
+        return [make_serializable(item) for item in data]
+    if isinstance(data, Enum):
+        return data.value
+    if hasattr(data, "value"):  # Handle objects with a `.value` attribute
         return make_serializable(data.value)
-    else:
-        _LOGGER.warning(f"⚠️ Unexpected type {type(data)} with value {data}, converting to string.")
-        return str(data)
+
+    _LOGGER.warning(f"⚠️ Unexpected type {type(data)} with value {data}, converting to string.")
+    return str(data)
+
 
 async def retrieve_scene(hass: HomeAssistant, entity_id: str) -> tuple[str | None, dict | None]:
     """Retrieve the scene_id and target scene from an entity_id."""
