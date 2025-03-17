@@ -70,24 +70,48 @@ SERVICE_SCHEMA = vol.Schema(
 
 _LOGGER = logging.getLogger(__name__)
 
-def make_serializable(data):
-    """Convert data into YAML-safe formats, recursively handling nested structures."""
-    if isinstance(data, Enum):
-        return data.value  # Convert Enums to their string representation
-    if isinstance(data, (str, int, float, bool, type(None))):
-        return data  # Allow standard data types
-    if isinstance(data, dict):
-        return {str(k): make_serializable(v) for k, v in data.items()}
-    if isinstance(data, list):
-        return [make_serializable(item) for item in data]
-    if isinstance(data, tuple):
-        return tuple(make_serializable(item) for item in data)
-    if isinstance(data, set):
-        return [make_serializable(item) for item in data]  # Convert sets to lists
-
-    # Catch-all: Convert anything unexpected to a string and log it
-    _LOGGER.warning(f"⚠️ Unexpected type {type(data)} with value {data}, converting to string.")
-    return str(data)
+def make_serializable(data, path="root"):
+    """Ensure data is converted into YAML-safe formats while maintaining logging and validation."""
+    try:
+        if isinstance(data, Enum):
+            _LOGGER.debug(f"🔄 Converting Enum at {path}: {data} -> {data.value}")
+            return data.value  # Convert Enum to its raw value
+        
+        if isinstance(data, tuple):
+            _LOGGER.debug(f"🔄 Converting tuple at {path}: {data} -> {list(data)}")
+            return list(data)  # Convert tuples to lists for YAML
+        
+        if isinstance(data, dict):
+            return {str(k): make_serializable(v, path=f"{path}.{k}") for k, v in data.items()}
+        
+        if isinstance(data, list):
+            return [make_serializable(item, path=f"{path}[{i}]") for i, item in enumerate(data)]
+        
+        if isinstance(data, int):
+            if isinstance(data, bool):  
+                return data  # YAML supports True/False natively
+            _LOGGER.debug(f"✅ Keeping int at {path}: {data}")
+            return data  # Integers are YAML-safe
+        
+        if isinstance(data, float):
+            _LOGGER.debug(f"✅ Keeping float at {path}: {data}")
+            return data  # Floats are YAML-safe
+        
+        if isinstance(data, str):
+            _LOGGER.debug(f"✅ Keeping string at {path}: {data}")
+            return data  # Strings are YAML-safe
+        
+        if data is None:
+            _LOGGER.debug(f"✅ Keeping None at {path}: {data}")
+            return None  # YAML supports null
+        
+        # **Catch-all for unsupported types**
+        _LOGGER.warning(f"⚠️ Unexpected type at {path}: {type(data)} ({data}) -> Converting to string")
+        return str(data)  # Convert unknown objects to string
+    
+    except Exception as e:
+        _LOGGER.error(f"❌ Error processing {path}: {e}")
+        return f"ERROR: {str(e)}"
 
 async def retrieve_scene(hass: HomeAssistant, entity_id: str) -> tuple[str | None, dict | None]:
     """Retrieve the scene_id and target scene from an entity_id."""
