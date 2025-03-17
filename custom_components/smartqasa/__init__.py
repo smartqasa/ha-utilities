@@ -71,7 +71,7 @@ SERVICE_SCHEMA = vol.Schema(
 _LOGGER = logging.getLogger(__name__)
 
 def make_serializable(data):
-    """Convert data into YAML-safe formats."""
+    """Convert data into YAML-safe formats, recursively handling nested structures."""
     if isinstance(data, Enum):
         return data.value  # Convert Enums to their string representation
     if isinstance(data, (str, int, float, bool, type(None))):
@@ -82,8 +82,10 @@ def make_serializable(data):
         return [make_serializable(item) for item in data]
     if isinstance(data, tuple):
         return tuple(make_serializable(item) for item in data)
+    if isinstance(data, set):
+        return [make_serializable(item) for item in data]  # Convert sets to lists
 
-    # Catch-all: Convert anything unexpected to a string
+    # Catch-all: Convert anything unexpected to a string and log it
     _LOGGER.warning(f"⚠️ Unexpected type {type(data)} with value {data}, converting to string.")
     return str(data)
 
