@@ -73,18 +73,19 @@ _LOGGER = logging.getLogger(__name__)
 def make_serializable(data):
     """Convert data into YAML-safe formats."""
     if isinstance(data, Enum):
-        return data.value  # Ensure Enum values are converted to their string representations
+        return data.value  # Convert Enum values to their string representations
     if isinstance(data, (str, int, float, bool, type(None))):
         return data
     if isinstance(data, dict):
         return {k: make_serializable(v) for k, v in data.items()}
-    if isinstance(data, (list, tuple)):
+    if isinstance(data, list):
         return [make_serializable(item) for item in data]
-    if hasattr(data, "value"):  # Handle objects with a `.value` attribute
-        return make_serializable(data.value)
-
+    if isinstance(data, tuple):
+        return tuple(make_serializable(item) for item in data)
+    
     _LOGGER.warning(f"⚠️ Unexpected type {type(data)} with value {data}, converting to string.")
     return str(data)
+
 
 
 
