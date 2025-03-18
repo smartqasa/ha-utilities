@@ -136,6 +136,8 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             _LOGGER.error(f"SmartQasa: Scene ID {scene_id} not found in scenes.yaml")
             return
         
+        _LOGGER.debug(f"scenes_config contents: {scenes_config}")
+        return
         scene_config = next((scene for scene in scenes_config if scene.get("id") == scene_id), None)
 
         scene_entities = scene_config.get("entities", {}).copy()
