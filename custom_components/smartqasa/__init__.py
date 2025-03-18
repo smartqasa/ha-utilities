@@ -116,8 +116,7 @@ async def retrieve_scene_config(hass: HomeAssistant, scene_id: str) -> dict:
 
         scene_config = next((scene for scene in scenes_config if scene.get("id") == scene_id), None)
         if not scene_config:
-            _LOGGER.error(f"SmartQasa: Scene ID {scene_id} not found in scenes.yaml")
-            return None
+            raise ValueError(f"Scene ID {scene_id} not found in scenes.yaml")
         return scene_config
     except FileNotFoundError:
         _LOGGER.error(f"SmartQasa: scenes.yaml not found")
@@ -166,8 +165,6 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
 
         _LOGGER.debug(f"Step 4: Updated scene_entities: {scene_entities}")
         scene_config["entities"] = scene_entities
-
-        return  # Debug checkpoint 2: Uncomment to stop before saving
     
         temp_file = None
         try:
