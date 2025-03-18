@@ -2,7 +2,7 @@ import aiofiles
 import asyncio
 from copy import deepcopy
 from datetime import datetime
-from enum import Enum, IntFlag  # Add IntFlag
+from enum import Enum, IntFlag
 import logging
 import os
 import tempfile
@@ -10,14 +10,8 @@ import voluptuous as vol
 from ruamel.yaml import YAML
 
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.components.light import ColorMode
-# Remove LightEntityFeature, CoverEntityFeature imports
+from homeassistant.components.light import ColorMode, LightEntityFeature  # Re-add for safety
 import homeassistant.helpers.config_validation as cv
-
-"""
-Home Assistant custom integration providing various smart home utilities.
-[Your docstring...]
-"""
 
 DOMAIN = "smartqasa"
 SERVICE_SCENE_GET = "scene_get"
@@ -40,12 +34,10 @@ SERVICE_SCHEMA = vol.Schema(
 )
 _LOGGER = logging.getLogger(__name__)
 
-# Configure ruamel.yaml
 yaml = YAML()
 yaml.allow_unicode = True
 yaml.default_flow_style = False
 
-# Custom representers for HA-specific types
 def datetime_representer(dumper, data):
     return dumper.represent_scalar('tag:yaml.org,2002:timestamp', data.isoformat())
 
@@ -58,14 +50,12 @@ def colormode_representer(dumper, data):
 def intflag_representer(dumper, data):
     return dumper.represent_int(data)
 
-# Register representers
 yaml.representer.add_representer(datetime, datetime_representer)
 yaml.representer.add_representer(Enum, enum_representer)
 yaml.representer.add_representer(ColorMode, colormode_representer)
-yaml.representer.add_representer(IntFlag, intflag_representer)  # Covers all EntityFeature enums
+yaml.representer.add_representer(IntFlag, intflag_representer)
 
 async def retrieve_scene_id(hass: HomeAssistant, entity_id: str) -> str:
-    """Retrieve the scene_id from an entity_id."""
     if not isinstance(entity_id, str):
         _LOGGER.error(f"SmartQasa: Invalid entity_id type, expected string but got {type(entity_id)}")
         return None
@@ -83,7 +73,6 @@ async def retrieve_scene_id(hass: HomeAssistant, entity_id: str) -> str:
     return scene_id
 
 async def retrieve_scene_config(hass: HomeAssistant, scene_id: str) -> tuple[dict, list]:
-    """Retrieve the scene config and the full scenes list from scenes.yaml."""
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
     try:
         async with aiofiles.open(scenes_file, "r", encoding="utf-8") as f:
@@ -105,9 +94,7 @@ async def retrieve_scene_config(hass: HomeAssistant, scene_id: str) -> tuple[dic
         return None, None
 
 async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
-    """Update current entity states into the scene and persist to scenes.yaml."""
     _LOGGER.debug(f"SmartQasa: Updating scene with scene_id {scene_id}")
-
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
     async with CAPTURE_LOCK:
         try:
@@ -139,6 +126,7 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 scene_entities[entity] = attributes
 
         scene_config["entities"] = scene_entities
+        _LOGGER.debug(f"Updated scenes_config before dump: {scenes_config}")  # Add this
 
         temp_file = None
         try:
@@ -156,14 +144,12 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             return
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Set up the SmartQasa integration."""
     conf = config.get(DOMAIN, {})
     if not conf.get("enabled", True):
         _LOGGER.info("SmartQasa: Integration disabled via configuration")
         return False
 
     async def handle_scene_get(call: ServiceCall) -> dict:
-        """Handle the scene_get service call to retrieve entity IDs for a given scene entity."""
         entity_id = call.data["entity_id"][0]
         scene_id = await retrieve_scene_id(hass, entity_id)
         if not scene_id:
@@ -187,7 +173,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             return {"entities": entities}
 
     async def handle_scene_update(call: ServiceCall) -> None:
-        """Handle the scene_update service call."""
         entity_id = call.data["entity_id"][0]
         scene_id = await retrieve_scene_id(hass, entity_id)
         if not scene_id:
