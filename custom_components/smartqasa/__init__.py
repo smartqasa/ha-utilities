@@ -4,6 +4,7 @@ from copy import deepcopy
 from datetime import datetime
 from enum import Enum
 import logging
+from typing import Optional
 import os
 import tempfile
 import voluptuous as vol
@@ -59,7 +60,7 @@ yaml.representer.add_representer(CoverEntityFeature, entityfeature_representer)
 yaml.representer.add_representer(FanEntityFeature, entityfeature_representer)
 yaml.representer.add_representer(LightEntityFeature, entityfeature_representer)
 
-async def retrieve_scene_id(hass: HomeAssistant, entity_id: str) -> str:
+async def retrieve_scene_id(hass: HomeAssistant, entity_id: str) -> Optional[str]:
     if not isinstance(entity_id, str):
         _LOGGER.error(f"SmartQasa: Invalid entity_id type, expected string but got {type(entity_id)}")
         return None
@@ -90,11 +91,12 @@ async def retrieve_scene_config(hass: HomeAssistant, scene_id: str) -> tuple[dic
                 raise ValueError(f"Scene ID {scene_id} not found in scenes.yaml")
             return scene_config, scenes_config
     except FileNotFoundError:
-        _LOGGER.error(f"SmartQasa: scenes.yaml not found")
-        return None, None
+        _LOGGER.warning("SmartQasa: scenes.yaml not found, returning empty scene list")
+        return None, []
+
     except Exception as e:
         _LOGGER.error(f"SmartQasa: Failed to load scenes.yaml: {str(e)}")
-        return None, None
+        return None, []
 
 async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
@@ -137,23 +139,26 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             os.replace(temp_file, scenes_file)
             await hass.services.async_call("scene", "reload")
         except YAMLError as e:
+            _LOGGER.error(f"SmartQasa: YAML serialization failed - {e}")
             problematic_value = str(e).split("cannot represent an object: ")[-1] if "cannot represent an object" in str(e) else str(e)
             for entity, attrs in scene_entities.items():
                 for key, value in attrs.items():
                     if str(value) == problematic_value:
                         _LOGGER.error(
-                            f"SmartQasa: YAML serialization failed. Problematic type: {type(value).__name__}, "
-                            f"Value: {value}, Entity: {entity}, Attribute: {key}"
+                            f"SmartQasa: Serialization failed for entity '{entity}', attribute '{key}', "
+                            f"type '{type(value).__name__}', value '{value}'"
                         )
                         break
+
             if temp_file and os.path.exists(temp_file):
                 os.remove(temp_file)
-            return
         except Exception as e:
             _LOGGER.error(f"SmartQasa: Failed to update scenes.yaml: {str(e)}")
             if temp_file and os.path.exists(temp_file):
                 os.remove(temp_file)
-            return
+        finally:
+            if temp_file and os.path.exists(temp_file):
+                os.remove(temp_file)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     conf = config.get(DOMAIN, {})
