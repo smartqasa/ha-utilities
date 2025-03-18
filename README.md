@@ -1,18 +1,37 @@
-# Scene Capture
+# SmartQasa Scene Capture
 
-A Home Assistant custom integration to capture the current states of entities into a scene and persist them to `scenes.yaml`.
+A powerful Home Assistant custom integration for capturing the current states of entities and persisting them to `scenes.yaml`. This enables dynamic scene updates without manual YAML editing.
 
-## Installation
+## 🚀 Features
 
-1. Install via HACS (recommended) or manually copy `custom_components/scene_capture/` to `/config/custom_components/`.
-2. Restart Home Assistant.
+- Capture and update scenes dynamically.
+- Supports a wide range of Home Assistant entity types.
+- Integrates seamlessly with Home Assistant’s `scene` domain.
+- Safe YAML handling using `ruamel.yaml` for improved formatting and serialization.
+- Error handling and logging for easy debugging.
 
-## Usage
+## 📥 Installation
 
-Call the action:
+### 1️⃣ Install via HACS (Recommended)
+
+- Open **HACS** in Home Assistant.
+- Navigate to **Integrations**.
+- Search for **SmartQasa Scene Capture**.
+- Click **Download** and restart Home Assistant.
+
+### 2️⃣ Manual Installation
+
+- Copy the `custom_components/smartqasa/` folder to your Home Assistant `config/custom_components/` directory.
+- Restart Home Assistant.
+
+## ⚙️ Usage
+
+### Capturing Current Entity States into a Scene
+
+To update an existing scene with the current states of its entities, call the following action:
 
 ```yaml
-action: scene_capture.capture
+action: smartqasa.scene_update
 target:
   entity_id: "scene.adjustable_living_room"
 ```

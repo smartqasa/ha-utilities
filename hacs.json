@@ -1,7 +1,12 @@
 {
   "name": "SmartQasa HA Utilities",
+  "homeassistant": "2023.1.0",
   "integration": true,
+  "filename": "__init__.py",
   "domains": ["smartqasa"],
   "iot_class": "Assumed State",
-  "render_readme": true
+  "render_readme": true,
+  "icon": "https://github.com/smartqasa/ha-utilities/raw/main/logo.png",
+  "documentation": "https://github.com/smartqasa/ha-utilities",
+  "issue_tracker": "https://github.com/smartqasa/ha-utilities/issues"
 }
