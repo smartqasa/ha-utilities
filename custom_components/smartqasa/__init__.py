@@ -131,14 +131,12 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
 
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
     async with CAPTURE_LOCK:
-        scenes_config = await retrieve_scene_config(hass, scene_id)
-        if not scenes_config:
+        scene_config = await retrieve_scene_config(hass, scene_id)
+        if not scene_config:
             _LOGGER.error(f"SmartQasa: Scene ID {scene_id} not found in scenes.yaml")
             return
         
-        _LOGGER.debug(f"scenes_config contents: {scenes_config}")
-        return
-        scene_config = next((scene for scene in scenes_config if scene.get("id") == scene_id), None)
+        _LOGGER.debug(f"scenes_config contents: {scene_config}")
 
         scene_entities = scene_config.get("entities", {}).copy()
         for entity in scene_config.get("entities", {}):
