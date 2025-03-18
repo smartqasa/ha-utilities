@@ -7,7 +7,7 @@ import logging
 import os
 import tempfile
 import voluptuous as vol
-from ruamel.yaml import YAML, RepresenterError  # Added RepresenterError
+from ruamel.yaml import YAML, YAMLError
 
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.components.light import ColorMode, LightEntityFeature
@@ -73,7 +73,8 @@ async def retrieve_scene_id(hass: HomeAssistant, entity_id: str) -> str:
         _LOGGER.error(f"SmartQasa: No 'id' found in attributes for entity_id {entity_id}")
         return None
     
-    return state.attributes["id"]
+    scene_id = state.attributes["id"]
+    return scene_id
 
 async def retrieve_scene_config(hass: HomeAssistant, scene_id: str) -> tuple[dict, list]:
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
@@ -118,6 +119,7 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 if attempt == max_attempts - 1:
                     _LOGGER.warning(f"SmartQasa: Entity {entity} did not load after {max_attempts} attempts, skipping.")
                     break
+                _LOGGER.warning(f"SmartQasa: Entity {entity} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
                 await asyncio.sleep(delay)
 
             if state:
@@ -134,8 +136,8 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 yaml.dump(scenes_config, temp_f)
             os.replace(temp_file, scenes_file)
             await hass.services.async_call("scene", "reload")
-        except RepresenterError as e:
-            problematic_value = str(e).split("cannot represent an object: ")[-1]
+        except YAMLError as e:
+            problematic_value = str(e).split("cannot represent an object: ")[-1] if "cannot represent an object" in str(e) else str(e)
             for entity, attrs in scene_entities.items():
                 for key, value in attrs.items():
                     if str(value) == problematic_value:
