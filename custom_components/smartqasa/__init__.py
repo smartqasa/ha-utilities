@@ -10,7 +10,7 @@ import voluptuous as vol
 from ruamel.yaml import YAML
 
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.components.light import ColorMode, LightEntityFeature  # Add LightEntityFeature
+from homeassistant.components.light import ColorMode, LightEntityFeature
 import homeassistant.helpers.config_validation as cv
 
 """
@@ -46,26 +46,22 @@ yaml.default_flow_style = False
 
 # Custom representers for HA-specific types
 def datetime_representer(dumper, data):
-    """Serialize datetime objects as YAML timestamps."""
     return dumper.represent_scalar('tag:yaml.org,2002:timestamp', data.isoformat())
 
 def enum_representer(dumper, data):
-    """Serialize Enum objects as their string values."""
     return dumper.represent_scalar('tag:yaml.org,2002:str', str(data.value))
 
 def colormode_representer(dumper, data):
-    """Serialize ColorMode enums as their string values."""
     return dumper.represent_scalar('tag:yaml.org,2002:str', data.value)
 
 def lightfeature_representer(dumper, data):
-    """Serialize LightEntityFeature enums as their integer values."""
     return dumper.represent_int(data)
 
 # Register representers
 yaml.representer.add_representer(datetime, datetime_representer)
 yaml.representer.add_representer(Enum, enum_representer)
 yaml.representer.add_representer(ColorMode, colormode_representer)
-yaml.representer.add_representer(LightEntityFeature, lightfeature_representer)  # Add LightEntityFeature handler
+yaml.representer.add_representer(LightEntityFeature, lightfeature_representer)
 
 async def retrieve_scene_id(hass: HomeAssistant, entity_id: str) -> str:
     """Retrieve the scene_id from an entity_id."""
@@ -140,6 +136,7 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 scene_entities[entity] = attributes
 
         scene_config["entities"] = scene_entities
+        _LOGGER.debug(f"Scene config to be serialized: {scene_config}")  # Targeted log for serialization
 
         temp_file = None
         try:
