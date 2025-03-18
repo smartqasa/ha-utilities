@@ -10,40 +10,12 @@ import voluptuous as vol
 from ruamel.yaml import YAML
 
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.components.light import ColorMode  # Import ColorMode
 import homeassistant.helpers.config_validation as cv
 
 """
 Home Assistant custom integration providing various smart home utilities.
-
-This integration provides services to manage scenes:
-- scene_update: Updates the states and attributes of a scene's entities in scenes.yaml.
-- scene_get: Retrieves a list of entity IDs for a given scene entity.
-
-Usage examples:
-  # Get scene entity IDs
-  service: smartqasa.scene_get
-  target:
-    entity_id: scene.living_room
-  # OR
-  service: smartqasa.scene_get
-  data:
-    entity_id: scene.living_room
-
-  # Update scene states
-  service: smartqasa.scene_update
-  target:
-    entity_id: scene.living_room
-  # OR
-  service: smartqasa.scene_update
-  data:
-    entity_id: scene.living_room
-
-Configuration example:
-  # configuration.yaml
-  smartqasa:
-    enabled: true  # Optional, defaults to true
-
-Repository: https://github.com/smartqasa/ha-utilities
+[Your docstring...]
 """
 
 DOMAIN = "smartqasa"
@@ -81,9 +53,14 @@ def enum_representer(dumper, data):
     """Serialize Enum objects as their string values."""
     return dumper.represent_scalar('tag:yaml.org,2002:str', str(data.value))
 
+def colormode_representer(dumper, data):
+    """Serialize ColorMode enums as their string values."""
+    return dumper.represent_scalar('tag:yaml.org,2002:str', data.value)
+
 # Register representers
 yaml.representer.add_representer(datetime, datetime_representer)
 yaml.representer.add_representer(Enum, enum_representer)
+yaml.representer.add_representer(ColorMode, colormode_representer)  # Add ColorMode handler
 
 async def retrieve_scene_id(hass: HomeAssistant, entity_id: str) -> str:
     """Retrieve the scene_id from an entity_id."""
@@ -109,15 +86,16 @@ async def retrieve_scene_config(hass: HomeAssistant, scene_id: str) -> dict:
     try:
         async with aiofiles.open(scenes_file, "r", encoding="utf-8") as f:
             content = await f.read()
-        scenes_config = yaml.load(content) or []
-        _LOGGER.debug(f"Loaded scenes_config from scenes.yaml: {scenes_config}")
-        if not isinstance(scenes_config, list):
-            raise ValueError("scenes.yaml does not contain a list of scenes")
-
-        scene_config = next((scene for scene in scenes_config if scene.get("id") == scene_id), None)
-        if not scene_config:
-            raise ValueError(f"Scene ID {scene_id} not found in scenes.yaml")
-        return scene_config
+            scenes_config = yaml.load(content) or []
+            _LOGGER.debug(f"Loaded scenes_config from scenes.yaml: {scenes_config}")
+            if not isinstance(scenes_config, list):
+                raise ValueError("scenes.yaml does not contain a list of scenes")
+            
+            scene_config = next((scene for scene in scenes_config if scene.get("id") == scene_id), None)
+            if not scene_config:
+                _LOGGER.error(f"SmartQasa: Scene ID {scene_id} not found in scenes.yaml")
+                return None
+            return scene_config
     except FileNotFoundError:
         _LOGGER.error(f"SmartQasa: scenes.yaml not found")
         return None
@@ -139,9 +117,7 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
         _LOGGER.debug(f"Step 1: Retrieved scene_config: {scene_config}")
 
         scene_entities = scene_config.get("entities", {}).copy()
-        if not scene_entities:
-            _LOGGER.warning(f"SmartQasa: No entities found in scene {scene_id}")
-            return
+        _LOGGER.debug(f"Step 2: Copied scene_entities: {scene_entities}")
 
         for entity in scene_entities:
             max_attempts = 3
@@ -165,7 +141,7 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
 
         _LOGGER.debug(f"Step 4: Updated scene_entities: {scene_entities}")
         scene_config["entities"] = scene_entities
-    
+
         temp_file = None
         try:
             with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', prefix='scenes_', suffix='.tmp', dir=hass.config.config_dir, delete=False) as temp_f:
