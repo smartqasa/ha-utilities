@@ -137,6 +137,7 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             return
         
         _LOGGER.debug(f"scenes_config contents: {scene_config}")
+        return
 
         scene_entities = scene_config.get("entities", {}).copy()
         for entity in scene_config.get("entities", {}):
@@ -166,7 +167,7 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
         try:
             with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', prefix='scenes_', suffix='.tmp', dir=hass.config.config_dir, delete=False) as temp_f:
                 temp_file = temp_f.name
-                yaml.dump(scenes_config, temp_f)  # Dump directly to file
+                yaml.dump(scene_config, temp_f)  # Dump directly to file
             os.replace(temp_file, scenes_file)
             await hass.services.async_call("scene", "reload")
             _LOGGER.info(f"SmartQasa: Updated and persisted scene {scene_id} with {len(scene_entities)} entities")
