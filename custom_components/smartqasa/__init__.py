@@ -1,13 +1,10 @@
 import aiofiles
 import asyncio
-from copy import deepcopy
-from datetime import datetime
-from enum import Enum, IntFlag
 import logging
 import os
 import tempfile
 import voluptuous as vol
-from ruamel.yaml import YAML
+from ruamel.yaml import YAML, RepresenterError
 
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.components.light import ColorMode, LightEntityFeature
@@ -55,9 +52,9 @@ def entityfeature_representer(dumper, data):
 yaml.representer.add_representer(datetime, datetime_representer)
 yaml.representer.add_representer(Enum, enum_representer)
 yaml.representer.add_representer(ColorMode, colormode_representer)
-yaml.representer.add_representer(LightEntityFeature, entityfeature_representer)
 yaml.representer.add_representer(CoverEntityFeature, entityfeature_representer)
 yaml.representer.add_representer(FanEntityFeature, entityfeature_representer)
+yaml.representer.add_representer(LightEntityFeature, entityfeature_representer)
 
 async def retrieve_scene_id(hass: HomeAssistant, entity_id: str) -> str:
     if not isinstance(entity_id, str):
@@ -73,8 +70,7 @@ async def retrieve_scene_id(hass: HomeAssistant, entity_id: str) -> str:
         _LOGGER.error(f"SmartQasa: No 'id' found in attributes for entity_id {entity_id}")
         return None
     
-    scene_id = state.attributes["id"]
-    return scene_id
+    return state.attributes["id"]
 
 async def retrieve_scene_config(hass: HomeAssistant, scene_id: str) -> tuple[dict, list]:
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
@@ -82,7 +78,6 @@ async def retrieve_scene_config(hass: HomeAssistant, scene_id: str) -> tuple[dic
         async with aiofiles.open(scenes_file, "r", encoding="utf-8") as f:
             content = await f.read()
             scenes_config = yaml.load(content) or []
-            _LOGGER.debug(f"Loaded scenes_config from scenes.yaml: {scenes_config}")
             if not isinstance(scenes_config, list):
                 raise ValueError("scenes.yaml does not contain a list of scenes")
             
@@ -98,7 +93,6 @@ async def retrieve_scene_config(hass: HomeAssistant, scene_id: str) -> tuple[dic
         return None, None
 
 async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
-    _LOGGER.debug(f"SmartQasa: Updating scene with scene_id {scene_id}")
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
     async with CAPTURE_LOCK:
         try:
@@ -121,7 +115,6 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 if attempt == max_attempts - 1:
                     _LOGGER.warning(f"SmartQasa: Entity {entity} did not load after {max_attempts} attempts, skipping.")
                     break
-                _LOGGER.warning(f"SmartQasa: Entity {entity} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
                 await asyncio.sleep(delay)
 
             if state:
@@ -130,17 +123,27 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 scene_entities[entity] = attributes
 
         scene_config["entities"] = scene_entities
-        _LOGGER.debug(f"Updated scenes_config before dump: {scenes_config}")
 
         temp_file = None
         try:
             with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', prefix='scenes_', suffix='.tmp', dir=hass.config.config_dir, delete=False) as temp_f:
                 temp_file = temp_f.name
                 yaml.dump(scenes_config, temp_f)
-            _LOGGER.debug(f"Wrote updated scenes_config to temp file: {temp_file}")
             os.replace(temp_file, scenes_file)
             await hass.services.async_call("scene", "reload")
-            _LOGGER.info(f"SmartQasa: Updated and persisted scene {scene_id} with {len(scene_entities)} entities")
+        except RepresenterError as e:
+            problematic_value = str(e).split("cannot represent an object: ")[-1]
+            for entity, attrs in scene_entities.items():
+                for key, value in attrs.items():
+                    if str(value) == problematic_value:
+                        _LOGGER.error(
+                            f"SmartQasa: YAML serialization failed. Problematic type: {type(value).__name__}, "
+                            f"Value: {value}, Entity: {entity}, Attribute: {key}"
+                        )
+                        break
+            if temp_file and os.path.exists(temp_file):
+                os.remove(temp_file)
+            return
         except Exception as e:
             _LOGGER.error(f"SmartQasa: Failed to update scenes.yaml: {str(e)}")
             if temp_file and os.path.exists(temp_file):
