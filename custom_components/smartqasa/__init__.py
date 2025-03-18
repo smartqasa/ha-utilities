@@ -109,14 +109,16 @@ async def retrieve_scene_config(hass: HomeAssistant, scene_id: str) -> dict:
     try:
         async with aiofiles.open(scenes_file, "r", encoding="utf-8") as f:
             content = await f.read()
-            scene_config = yaml.load(content) or {}
-            _LOGGER.debug(f"Loaded scene_config from scenes.yaml: {scene_config}")
-            if not isinstance(scene_config, dict):
-                raise ValueError("scenes.yaml does not contain a valid scene dictionary")
-            if scene_config.get("id") != scene_id:
-                _LOGGER.error(f"SmartQasa: Scene ID {scene_id} does not match scenes.yaml ID {scene_config.get('id')}")
-                return None
-            return scene_config
+        scenes_config = yaml.load(content) or []
+        _LOGGER.debug(f"Loaded scenes_config from scenes.yaml: {scenes_config}")
+        if not isinstance(scenes_config, list):
+            raise ValueError("scenes.yaml does not contain a list of scenes")
+
+        scene_config = next((scene for scene in scenes_config if scene.get("id") == scene_id), None)
+        if not scene_config:
+            _LOGGER.error(f"SmartQasa: Scene ID {scene_id} not found in scenes.yaml")
+            return None
+        return scene_config
     except FileNotFoundError:
         _LOGGER.error(f"SmartQasa: scenes.yaml not found")
         return None
