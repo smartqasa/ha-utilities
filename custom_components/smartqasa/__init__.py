@@ -2,7 +2,7 @@ import aiofiles
 import asyncio
 from copy import deepcopy
 from datetime import datetime
-from enum import Enum
+from enum import Enum, IntFlag  # Add IntFlag
 import logging
 import os
 import tempfile
@@ -10,7 +10,8 @@ import voluptuous as vol
 from ruamel.yaml import YAML
 
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.components.light import ColorMode, LightEntityFeature
+from homeassistant.components.light import ColorMode
+# Remove LightEntityFeature, CoverEntityFeature imports
 import homeassistant.helpers.config_validation as cv
 
 """
@@ -54,14 +55,14 @@ def enum_representer(dumper, data):
 def colormode_representer(dumper, data):
     return dumper.represent_scalar('tag:yaml.org,2002:str', data.value)
 
-def lightfeature_representer(dumper, data):
+def intflag_representer(dumper, data):
     return dumper.represent_int(data)
 
 # Register representers
 yaml.representer.add_representer(datetime, datetime_representer)
 yaml.representer.add_representer(Enum, enum_representer)
 yaml.representer.add_representer(ColorMode, colormode_representer)
-yaml.representer.add_representer(LightEntityFeature, lightfeature_representer)
+yaml.representer.add_representer(IntFlag, intflag_representer)  # Covers all EntityFeature enums
 
 async def retrieve_scene_id(hass: HomeAssistant, entity_id: str) -> str:
     """Retrieve the scene_id from an entity_id."""
@@ -139,16 +140,11 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
 
         scene_config["entities"] = scene_entities
 
-        for i, scene in enumerate(scenes_config):
-            if scene.get("id") == scene_id:
-                scenes_config[i] = scene_config
-                break
-
         temp_file = None
         try:
             with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', prefix='scenes_', suffix='.tmp', dir=hass.config.config_dir, delete=False) as temp_f:
                 temp_file = temp_f.name
-                yaml.dump(scenes_config, temp_f)  # Write the full list
+                yaml.dump(scenes_config, temp_f)
             _LOGGER.debug(f"Wrote updated scenes_config to temp file: {temp_file}")
             os.replace(temp_file, scenes_file)
             await hass.services.async_call("scene", "reload")
