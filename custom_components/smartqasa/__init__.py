@@ -10,7 +10,7 @@ import voluptuous as vol
 from ruamel.yaml import YAML
 
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.components.light import ColorMode
+from homeassistant.components.light import ColorMode, LightEntityFeature  # Add LightEntityFeature
 import homeassistant.helpers.config_validation as cv
 
 """
@@ -57,10 +57,15 @@ def colormode_representer(dumper, data):
     """Serialize ColorMode enums as their string values."""
     return dumper.represent_scalar('tag:yaml.org,2002:str', data.value)
 
+def lightfeature_representer(dumper, data):
+    """Serialize LightEntityFeature enums as their integer values."""
+    return dumper.represent_int(data)
+
 # Register representers
 yaml.representer.add_representer(datetime, datetime_representer)
 yaml.representer.add_representer(Enum, enum_representer)
 yaml.representer.add_representer(ColorMode, colormode_representer)
+yaml.representer.add_representer(LightEntityFeature, lightfeature_representer)  # Add LightEntityFeature handler
 
 async def retrieve_scene_id(hass: HomeAssistant, entity_id: str) -> str:
     """Retrieve the scene_id from an entity_id."""
@@ -87,15 +92,13 @@ async def retrieve_scene_config(hass: HomeAssistant, scene_id: str) -> dict:
         async with aiofiles.open(scenes_file, "r", encoding="utf-8") as f:
             content = await f.read()
             scenes_config = yaml.load(content) or []
-            
             _LOGGER.debug(f"Loaded scenes_config from scenes.yaml: {scenes_config}")
-
             if not isinstance(scenes_config, list):
                 raise ValueError("scenes.yaml does not contain a list of scenes")
             
             scene_config = next((scene for scene in scenes_config if scene.get("id") == scene_id), None)
             if not scene_config:
-                raise ValueError(f"Scene ID {scene_id} not found in scenes.yaml")  # Changed to raise
+                raise ValueError(f"Scene ID {scene_id} not found in scenes.yaml")
             return scene_config
     except FileNotFoundError:
         _LOGGER.error(f"SmartQasa: scenes.yaml not found")
