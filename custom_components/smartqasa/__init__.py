@@ -1,10 +1,13 @@
 import aiofiles
 import asyncio
+from copy import deepcopy
+from datetime import datetime
+from enum import Enum
 import logging
 import os
 import tempfile
 import voluptuous as vol
-from ruamel.yaml import YAML, RepresenterError
+from ruamel.yaml import YAML, RepresenterError  # Added RepresenterError
 
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.components.light import ColorMode, LightEntityFeature
