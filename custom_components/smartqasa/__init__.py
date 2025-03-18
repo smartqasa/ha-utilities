@@ -142,7 +142,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             return {f"Scene not found for entity {entity_id}"}
 
         entities = list(target_scene.get("entities", {}).keys())
-        return {"entities": entities}
+        
+        return {"entities": entities, "scene dict": target_scene}
 
     async def handle_scene_update(call: ServiceCall) -> None:
         """Handle the scene_update service call."""
