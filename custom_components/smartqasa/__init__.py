@@ -109,21 +109,20 @@ async def retrieve_scene_config(hass: HomeAssistant, scene_id: str) -> dict:
     try:
         async with aiofiles.open(scenes_file, "r", encoding="utf-8") as f:
             content = await f.read()
-            scenes_config = yaml.load(content) or []
-            if not isinstance(scenes_config, list):
-                raise ValueError("scenes.yaml does not contain a list of scenes")
+            scene_config = yaml.load(content) or {}
+            _LOGGER.debug(f"Loaded scene_config from scenes.yaml: {scene_config}")
+            if not isinstance(scene_config, dict):
+                raise ValueError("scenes.yaml does not contain a valid scene dictionary")
+            if scene_config.get("id") != scene_id:
+                _LOGGER.error(f"SmartQasa: Scene ID {scene_id} does not match scenes.yaml ID {scene_config.get('id')}")
+                return None
+            return scene_config
     except FileNotFoundError:
         _LOGGER.error(f"SmartQasa: scenes.yaml not found")
         return None
     except Exception as e:
         _LOGGER.error(f"SmartQasa: Failed to load scenes.yaml: {str(e)}")
         return None
-
-    scene_config = next((scene for scene in scenes_config if scene.get("id") == scene_id), None)
-    if not scene_config:
-        _LOGGER.error(f"SmartQasa: Scene ID {scene_id} not found in scenes.yaml")
-        return None
-    return scene_config
 
 async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
     """Update current entity states into the scene and persist to scenes.yaml."""
@@ -136,11 +135,14 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             _LOGGER.error(f"SmartQasa: Scene ID {scene_id} not found in scenes.yaml")
             return
         
-        _LOGGER.debug(f"scenes_config contents: {scene_config}")
-        return
+        _LOGGER.debug(f"Step 1: Retrieved scene_config: {scene_config}")
 
         scene_entities = scene_config.get("entities", {}).copy()
-        for entity in scene_config.get("entities", {}):
+        if not scene_entities:
+            _LOGGER.warning(f"SmartQasa: No entities found in scene {scene_id}")
+            return
+
+        for entity in scene_entities:
             max_attempts = 3
             state = None
             for attempt in range(max_attempts):
@@ -155,19 +157,22 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 await asyncio.sleep(delay)
 
             if state:
-                _LOGGER.debug(f"🔍 Processing entity `{entity}` with attributes: {state.attributes}")
-                # Directly use attributes, relying on ruamel.yaml to serialize
+                _LOGGER.debug(f"Step 3: Processing entity `{entity}` with attributes: {state.attributes}")
                 attributes = dict(state.attributes) if isinstance(state.attributes, dict) else {}
                 attributes["state"] = str(state.state)
                 scene_entities[entity] = attributes
 
+        _LOGGER.debug(f"Step 4: Updated scene_entities: {scene_entities}")
         scene_config["entities"] = scene_entities
 
+        return  # Debug checkpoint 2: Uncomment to stop before saving
+    
         temp_file = None
         try:
             with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', prefix='scenes_', suffix='.tmp', dir=hass.config.config_dir, delete=False) as temp_f:
                 temp_file = temp_f.name
-                yaml.dump(scene_config, temp_f)  # Dump directly to file
+                yaml.dump(scene_config, temp_f)
+            _LOGGER.debug(f"Step 5: Wrote updated config to temp file: {temp_file}")
             os.replace(temp_file, scenes_file)
             await hass.services.async_call("scene", "reload")
             _LOGGER.info(f"SmartQasa: Updated and persisted scene {scene_id} with {len(scene_entities)} entities")
@@ -201,7 +206,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             entities = list(scene_config.get("entities", {}).keys())
             if not entities:
                 _LOGGER.warning(f"SmartQasa: No entities found in scene {scene_id} for entity {entity_id}")
-                return {"warning": f"No entities found in scene {entity_id}"}  
+                return {"warning": f"No entities found in scene {entity_id}"}
             
             return {"entities": entities}
 
