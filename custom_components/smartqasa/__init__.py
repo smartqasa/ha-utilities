@@ -10,7 +10,9 @@ import voluptuous as vol
 from ruamel.yaml import YAML
 
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.components.light import ColorMode, LightEntityFeature  # Re-add for safety
+from homeassistant.components.light import ColorMode, LightEntityFeature
+from homeassistant.components.cover import CoverEntityFeature
+from homeassistant.components.fan import FanEntityFeature
 import homeassistant.helpers.config_validation as cv
 
 DOMAIN = "smartqasa"
@@ -47,13 +49,15 @@ def enum_representer(dumper, data):
 def colormode_representer(dumper, data):
     return dumper.represent_scalar('tag:yaml.org,2002:str', data.value)
 
-def intflag_representer(dumper, data):
+def entityfeature_representer(dumper, data):
     return dumper.represent_int(data)
 
 yaml.representer.add_representer(datetime, datetime_representer)
 yaml.representer.add_representer(Enum, enum_representer)
 yaml.representer.add_representer(ColorMode, colormode_representer)
-yaml.representer.add_representer(IntFlag, intflag_representer)
+yaml.representer.add_representer(LightEntityFeature, entityfeature_representer)
+yaml.representer.add_representer(CoverEntityFeature, entityfeature_representer)
+yaml.representer.add_representer(FanEntityFeature, entityfeature_representer)
 
 async def retrieve_scene_id(hass: HomeAssistant, entity_id: str) -> str:
     if not isinstance(entity_id, str):
@@ -126,7 +130,7 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 scene_entities[entity] = attributes
 
         scene_config["entities"] = scene_entities
-        _LOGGER.debug(f"Updated scenes_config before dump: {scenes_config}")  # Add this
+        _LOGGER.debug(f"Updated scenes_config before dump: {scenes_config}")
 
         temp_file = None
         try:
