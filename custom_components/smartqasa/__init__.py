@@ -10,7 +10,7 @@ import voluptuous as vol
 from ruamel.yaml import YAML
 
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.components.light import ColorMode  # Import ColorMode
+from homeassistant.components.light import ColorMode
 import homeassistant.helpers.config_validation as cv
 
 """
@@ -60,7 +60,7 @@ def colormode_representer(dumper, data):
 # Register representers
 yaml.representer.add_representer(datetime, datetime_representer)
 yaml.representer.add_representer(Enum, enum_representer)
-yaml.representer.add_representer(ColorMode, colormode_representer)  # Add ColorMode handler
+yaml.representer.add_representer(ColorMode, colormode_representer)
 
 async def retrieve_scene_id(hass: HomeAssistant, entity_id: str) -> str:
     """Retrieve the scene_id from an entity_id."""
@@ -87,14 +87,15 @@ async def retrieve_scene_config(hass: HomeAssistant, scene_id: str) -> dict:
         async with aiofiles.open(scenes_file, "r", encoding="utf-8") as f:
             content = await f.read()
             scenes_config = yaml.load(content) or []
+            
             _LOGGER.debug(f"Loaded scenes_config from scenes.yaml: {scenes_config}")
+
             if not isinstance(scenes_config, list):
                 raise ValueError("scenes.yaml does not contain a list of scenes")
             
             scene_config = next((scene for scene in scenes_config if scene.get("id") == scene_id), None)
             if not scene_config:
-                _LOGGER.error(f"SmartQasa: Scene ID {scene_id} not found in scenes.yaml")
-                return None
+                raise ValueError(f"Scene ID {scene_id} not found in scenes.yaml")  # Changed to raise
             return scene_config
     except FileNotFoundError:
         _LOGGER.error(f"SmartQasa: scenes.yaml not found")
@@ -109,16 +110,13 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
 
     scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
     async with CAPTURE_LOCK:
-        scene_config = await retrieve_scene_config(hass, scene_id)
-        if not scene_config:
-            _LOGGER.error(f"SmartQasa: Scene ID {scene_id} not found in scenes.yaml")
+        try:
+            scene_config = await retrieve_scene_config(hass, scene_id)
+        except ValueError as e:
+            _LOGGER.error(str(e))
             return
         
-        _LOGGER.debug(f"Step 1: Retrieved scene_config: {scene_config}")
-
         scene_entities = scene_config.get("entities", {}).copy()
-        _LOGGER.debug(f"Step 2: Copied scene_entities: {scene_entities}")
-
         for entity in scene_entities:
             max_attempts = 3
             state = None
@@ -134,12 +132,10 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
                 await asyncio.sleep(delay)
 
             if state:
-                _LOGGER.debug(f"Step 3: Processing entity `{entity}` with attributes: {state.attributes}")
                 attributes = dict(state.attributes) if isinstance(state.attributes, dict) else {}
                 attributes["state"] = str(state.state)
                 scene_entities[entity] = attributes
 
-        _LOGGER.debug(f"Step 4: Updated scene_entities: {scene_entities}")
         scene_config["entities"] = scene_entities
 
         temp_file = None
@@ -147,7 +143,7 @@ async def update_scene_states(hass: HomeAssistant, scene_id: str) -> None:
             with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', prefix='scenes_', suffix='.tmp', dir=hass.config.config_dir, delete=False) as temp_f:
                 temp_file = temp_f.name
                 yaml.dump(scene_config, temp_f)
-            _LOGGER.debug(f"Step 5: Wrote updated config to temp file: {temp_file}")
+            _LOGGER.debug(f"Wrote updated scene_config to temp file: {temp_file}")
             os.replace(temp_file, scenes_file)
             await hass.services.async_call("scene", "reload")
             _LOGGER.info(f"SmartQasa: Updated and persisted scene {scene_id} with {len(scene_entities)} entities")
@@ -173,11 +169,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             return {"error": f"Invalid or unrecognized scene entity: {entity_id}"}
 
         async with CAPTURE_LOCK:
-            scene_config = await retrieve_scene_config(hass, scene_id)
-            if not scene_config:
+            try:
+                scene_config = await retrieve_scene_config(hass, scene_id)
+            except ValueError as e:
                 _LOGGER.error(f"SmartQasa: Scene ID {scene_id} not found in scenes.yaml for entity {entity_id}")
-                return {"error": f"Scene not found for entity {entity_id}"}
-
+                return {"error": str(e)}
+            
             entities = list(scene_config.get("entities", {}).keys())
             if not entities:
                 _LOGGER.warning(f"SmartQasa: No entities found in scene {scene_id} for entity {entity_id}")
