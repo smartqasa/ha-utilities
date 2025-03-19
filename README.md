@@ -26,12 +26,19 @@ A powerful Home Assistant custom integration for capturing the current states of
 
 ## ⚙️ Usage
 
-### Capturing Current Entity States into a Scene
+### Retrieving Entity List for a Scene
 
-To update an existing scene with the current states of its entities, call the following action:
+To get a list of all entities in a scene, call the following action:
+
+````yaml
+action: smartqasa.scene_get
+target:
+  entity_id: "scene.adjustable_living_room"
+
+To update the entities contained in a scene, call the following action:
 
 ```yaml
 action: smartqasa.scene_update
 target:
   entity_id: "scene.adjustable_living_room"
-```
+````
