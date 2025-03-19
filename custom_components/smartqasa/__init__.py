@@ -198,6 +198,17 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
         await update_scene_states(hass, scene_id)
 
+        await hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": "Scene Updated",
+                "message": f"Scene {entity_id} has been successfully updated.",
+                "notification_id": f"smartqasa_scene_update_{scene_id}"
+            }
+        )
+        _LOGGER.info(f"SmartQasa: Scene updated successfully for {entity_id}")
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_SCENE_GET,
