@@ -30,10 +30,13 @@ A powerful Home Assistant custom integration for capturing the current states of
 
 To get a list of all entities in a scene, call the following action:
 
-````yaml
+```yaml
 action: smartqasa.scene_get
 target:
   entity_id: "scene.adjustable_living_room"
+```
+
+### Retrieving Entity List for a Scene
 
 To update the entities contained in a scene, call the following action:
 
@@ -41,4 +44,4 @@ To update the entities contained in a scene, call the following action:
 action: smartqasa.scene_update
 target:
   entity_id: "scene.adjustable_living_room"
-````
+```

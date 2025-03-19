@@ -1,6 +1,6 @@
 {
   "name": "SmartQasa",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "documentation": "https://github.com/smartqasa/ha-utilities",
   "issue_tracker": "https://github.com/smartqasa/ha-utilities/issues",
   "codeowners": ["@smartqasa"],
