@@ -142,27 +142,36 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 return {"success": False, "message": f"Failed to load scenes.yaml: {str(e)}"}
 
             scene_entities = scene_config.get("entities", {}).copy()
-            for entity in scene_entities:
+            for entidade in scene_entities:
                 max_attempts = 3
                 state = None
                 for attempt in range(max_attempts):
-                    state = await hass.async_add_executor_job(hass.states.get, entity)
+                    state = await hass.async_add_executor_job(hass.states.get, entidade)
                     if state and state.state is not None:
                         break
                     delay = 0.2 * (2 ** attempt)
                     if attempt == max_attempts - 1:
-                        _LOGGER.warning(f"SmartQasa: Entity {entity} did not load after {max_attempts} attempts, retaining existing data.")
+                        _LOGGER.warning(f"SmartQasa: Entity {entidade} did not load after {max_attempts} attempts, retaining existing data.")
                         break
-                    _LOGGER.warning(f"SmartQasa: Entity {entity} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
+                    _LOGGER.warning(f"SmartQasa: Entity {entidade} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
                     await asyncio.sleep(delay)
 
                 if state:
+                    _LOGGER.debug(f"SmartQasa: Processing entity {entidade} with state {state.state}")
                     attributes = dict(state.attributes) if isinstance(state.attributes, dict) else {}
+                    _LOGGER.debug(f"SmartQasa: Original attributes for {entidade}: {attributes}")
+                    
+                    # Log each attribute before adding to scene_entities
+                    for key, value in attributes.items():
+                        _LOGGER.debug(f"SmartQasa: Entity {entidade} attribute {key}: value={value}, type={type(value)}")
+                    
                     attributes["state"] = str(state.state)
-                    scene_entities[entity] = attributes
+                    scene_entities[entidade] = attributes
 
             scene_config["entities"] = scene_entities
 
+            _LOGGER.debug(f"SmartQasa: Final scene_config before YAML dump: {scene_config}")
+            
             temp_file = None
             try:
                 with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', prefix='scenes_', suffix='.tmp', dir=hass.config.config_dir, delete=False) as temp_f:
@@ -170,9 +179,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                     yaml.dump(scenes_config, temp_f)
                 os.replace(temp_file, scenes_file)
                 await hass.services.async_call("scene", "reload")
-                return {"success": True, "message": f"Scene {scene_id} updated successfully"}
+                return {"success": True, "message": f"Scene {entity_id} ({scene_id}) updated successfully"}
             except YAMLError as e:
                 _LOGGER.error(f"SmartQasa: YAML serialization failed - {e}")
+                _LOGGER.debug(f"SmartQasa: Failed scene_config: {scene_config}")
                 return {"success": False, "message": f"YAML serialization failed: {str(e)}"}
             except Exception as e:
                 _LOGGER.error(f"SmartQasa: Failed to update scenes.yaml: {str(e)}")
@@ -196,4 +206,4 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         supports_response="only",
     )
     _LOGGER.info("SmartQasa: Services registered successfully")
-    return True 
+    return True
