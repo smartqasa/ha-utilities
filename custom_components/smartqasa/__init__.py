@@ -196,4 +196,4 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         supports_response="only",
     )
     _LOGGER.info("SmartQasa: Services registered successfully")
-    return True
+    return True 
