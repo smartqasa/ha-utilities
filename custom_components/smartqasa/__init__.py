@@ -183,7 +183,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                     temp_file = temp_f.name
                     yaml.dump(scenes_config, temp_f)
                 os.replace(temp_file, scenes_file)
-                await hass.services.async_call("scene", "reload")
                 return {"success": True, "message": f"Scene {entity_id} ({scene_id}) updated successfully"}
             except YAMLError as e:
                 _LOGGER.error(f"SmartQasa: YAML serialization failed - {e}")
