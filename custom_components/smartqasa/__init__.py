@@ -18,6 +18,7 @@ import homeassistant.helpers.config_validation as cv
 
 DOMAIN = "smartqasa"
 SERVICE_SCENE_GET = "scene_get"
+SERVICE_SCENE_RELOAD = "scene_reload"
 SERVICE_SCENE_UPDATE = "scene_update"
 CAPTURE_LOCK = asyncio.Lock()
 CONFIG_SCHEMA = vol.Schema(
@@ -35,6 +36,8 @@ SERVICE_SCHEMA = vol.Schema(
         vol.Required("entity_id"): vol.All(cv.ensure_list, vol.Length(min=1, max=1), [cv.entity_id])
     },
 )
+SERVICE_RELOAD_SCHEMA = vol.Schema({})
+
 _LOGGER = logging.getLogger(__name__)
 
 yaml = YAML()
@@ -54,7 +57,6 @@ def entityfeature_representer(dumper, data):
     return dumper.represent_int(data)
 
 def uint8_t_representer(dumper, data):
-    # Handle zigpy uint8_t and similar integer-like types by converting to native int
     return dumper.represent_int(int(data))
 
 yaml.representer.add_representer(datetime, datetime_representer)
@@ -194,6 +196,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 if temp_file and os.path.exists(temp_file):
                     os.remove(temp_file)
 
+    async def handle_scene_reload(call: ServiceCall) -> None:
+        await hass.services.async_call("scene", "reload")
+        _LOGGER.debug("SmartQasa: Scene reload triggered")
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_SCENE_GET,
@@ -207,6 +213,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         handle_scene_update,
         schema=SERVICE_SCHEMA,
         supports_response="only",
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SCENE_RELOAD,
+        handle_scene_reload,
+        schema=SERVICE_RELOAD_SCHEMA,
     )
     _LOGGER.info("SmartQasa: Services registered successfully")
     return True

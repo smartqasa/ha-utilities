@@ -18,3 +18,8 @@ scene_update:
   target:
     entity:
       domain: scene
+
+scene_reload:
+  name: Reload Scenes
+  description: Reloads all scenes from scenes.yaml without requiring a specific entity.
+  fields: {}
