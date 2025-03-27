@@ -209,16 +209,17 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     )
     hass.services.async_register(
         DOMAIN,
+        SERVICE_SCENE_RELOAD,
+        handle_scene_reload,
+        schema=SERVICE_RELOAD_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
         SERVICE_SCENE_UPDATE,
         handle_scene_update,
         schema=SERVICE_SCHEMA,
         supports_response="only",
     )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_SCENE_RELOAD,
-        handle_scene_reload,
-        schema=SERVICE_RELOAD_SCHEMA,
-    )
+
     _LOGGER.info("SmartQasa: Services registered successfully")
     return True

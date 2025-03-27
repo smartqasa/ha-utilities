@@ -12,14 +12,14 @@ scene_get:
         type: string
         example: "light.kitchen_lights"
 
+scene_reload:
+  name: Reload Scenes
+  description: Reloads all scenes from scenes.yaml without requiring a specific entity.
+  fields: {}
+
 scene_update:
   name: Update Scene
   description: Updates the states and attributes of a scene's entities and persists them to scenes.yaml.
   target:
     entity:
       domain: scene
-
-scene_reload:
-  name: Reload Scenes
-  description: Reloads all scenes from scenes.yaml without requiring a specific entity.
-  fields: {}
