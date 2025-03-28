@@ -59,15 +59,25 @@ def entityfeature_representer(dumper, data):
 def uint8_t_representer(dumper, data):
     return dumper.represent_int(int(data))
 
+def list_representer(dumper, data):
+    return dumper.represent_sequence('tag:yaml.org,2002:seq', data)
+
+def none_representer(dumper, data):
+    return dumper.represent_scalar('tag:yaml.org,2002:null', 'null')
+
+def set_representer(dumper, data):
+    return dumper.represent_sequence('tag:yaml.org,2002:seq', list(data))
+
 yaml.representer.add_representer(datetime, datetime_representer)
 yaml.representer.add_representer(Enum, enum_representer)
 yaml.representer.add_representer(ColorMode, colormode_representer)
 yaml.representer.add_representer(CoverEntityFeature, entityfeature_representer)
 yaml.representer.add_representer(FanEntityFeature, entityfeature_representer)
 yaml.representer.add_representer(LightEntityFeature, entityfeature_representer)
+yaml.representer.add_representer(list, list_representer)
+yaml.representer.add_representer(type(None), none_representer)
+yaml.representer.add_representer(set, set_representer)
 
-# Add representer for zigpy uint8_t without direct import
-# This will catch any object with a type name containing 'uint8_t' that can be converted to int
 yaml.representer.add_multi_representer(
     object,
     lambda dumper, data: dumper.represent_int(int(data))
