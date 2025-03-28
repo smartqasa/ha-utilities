@@ -2,7 +2,7 @@ import aiofiles
 import asyncio
 from copy import deepcopy
 from datetime import datetime
-from enum import Enum
+from enum import Enum, StrEnum
 import logging
 from typing import Optional
 import os
@@ -44,12 +44,25 @@ yaml = YAML()
 yaml.allow_unicode = True
 yaml.default_flow_style = False
 
+def safe_item(item):
+    """Recursively process an item, excluding it if serialization fails."""
+    try:
+        if isinstance(item, Enum):
+            return item.value
+        elif isinstance(item, (list, tuple, set)):
+            return [safe_item(sub) for sub in item]
+        elif isinstance(item, dict):
+            return {str(k): safe_item(v) for k, v in item.items()}
+        return item
+    except Exception as e:
+        _LOGGER.warning(f"Failed to serialize item {item}: {str(e)}. Excluding from output.")
+        return None  # Will be filtered out later
+
 def datetime_representer(dumper, data):
     return dumper.represent_scalar('tag:yaml.org,2002:timestamp', data.isoformat())
 
 def enum_representer(dumper, data):
-    # Handle Home Assistant StrEnum and other Enum subclasses by using their value
-    if hasattr(data, 'value'):
+    if isinstance(data, Enum):
         return dumper.represent_scalar('tag:yaml.org,2002:str', str(data.value))
     return dumper.represent_scalar('tag:yaml.org,2002:str', str(data))
 
@@ -63,16 +76,22 @@ def uint8_t_representer(dumper, data):
     return dumper.represent_int(int(data))
 
 def list_representer(dumper, data):
-    return dumper.represent_sequence('tag:yaml.org,2002:seq', data)
+    processed = [safe_item(x) for x in data]
+    # Filter out None values from failed serializations
+    filtered = [x for x in processed if x is not None]
+    return dumper.represent_sequence('tag:yaml.org,2002:seq', filtered)
 
 def none_representer(dumper, data):
     return dumper.represent_scalar('tag:yaml.org,2002:null', 'null')
 
 def set_representer(dumper, data):
-    return dumper.represent_sequence('tag:yaml.org,2002:seq', list(data))
+    processed = [safe_item(x) for x in data]
+    filtered = [x for x in processed if x is not None]
+    return dumper.represent_sequence('tag:yaml.org,2002:seq', filtered)
 
 yaml.representer.add_representer(datetime, datetime_representer)
-yaml.representer.add_representer(Enum, enum_representer)  # Covers all Enum subclasses
+yaml.representer.add_representer(Enum, enum_representer)
+yaml.representer.add_representer(StrEnum, enum_representer)
 yaml.representer.add_representer(ColorMode, colormode_representer)
 yaml.representer.add_representer(CoverEntityFeature, entityfeature_representer)
 yaml.representer.add_representer(FanEntityFeature, entityfeature_representer)
@@ -83,9 +102,9 @@ yaml.representer.add_representer(set, set_representer)
 
 yaml.representer.add_multi_representer(
     object,
-    lambda dumper, data: dumper.represent_int(int(data))
-    if str(type(data)).startswith("<class 'zigpy.types.basic.uint8_t'>")
-    else dumper.represent_mapping('tag:yaml.org,2002:map', data.__dict__)
+    lambda dumper, data: dumper.represent_int(int(data)) if str(type(data)).startswith("<class 'zigpy.types.basic.uint8_t'>")
+    else dumper.represent_scalar('tag:yaml.org,2002:str', str(data.value)) if isinstance(data, Enum)
+    else dumper.represent_mapping('tag:yaml.org,2002:map', {str(k): v for k, v in ((k, safe_item(v)) for k, v in vars(data).items()) if v is not None})
     if hasattr(data, '__dict__') else dumper.represent_str(str(data))
 )
 
@@ -188,6 +207,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 if state:
                     attributes = dict(state.attributes) if isinstance(state.attributes, dict) else {}
                     attributes["state"] = str(state.state)
+                    # Filter out None values from attributes after safe_item processing
+                    attributes = {k: v for k, v in ((k, safe_item(v)) for k, v in attributes.items()) if v is not None}
                     scene_entities[entidade] = attributes
 
             scene_config["entities"] = scene_entities
