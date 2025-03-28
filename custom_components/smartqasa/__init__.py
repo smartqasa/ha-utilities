@@ -48,7 +48,10 @@ def datetime_representer(dumper, data):
     return dumper.represent_scalar('tag:yaml.org,2002:timestamp', data.isoformat())
 
 def enum_representer(dumper, data):
-    return dumper.represent_scalar('tag:yaml.org,2002:str', str(data.value))
+    # Handle Home Assistant StrEnum and other Enum subclasses by using their value
+    if hasattr(data, 'value'):
+        return dumper.represent_scalar('tag:yaml.org,2002:str', str(data.value))
+    return dumper.represent_scalar('tag:yaml.org,2002:str', str(data))
 
 def colormode_representer(dumper, data):
     return dumper.represent_scalar('tag:yaml.org,2002:str', data.value)
@@ -69,7 +72,7 @@ def set_representer(dumper, data):
     return dumper.represent_sequence('tag:yaml.org,2002:seq', list(data))
 
 yaml.representer.add_representer(datetime, datetime_representer)
-yaml.representer.add_representer(Enum, enum_representer)
+yaml.representer.add_representer(Enum, enum_representer)  # Covers all Enum subclasses
 yaml.representer.add_representer(ColorMode, colormode_representer)
 yaml.representer.add_representer(CoverEntityFeature, entityfeature_representer)
 yaml.representer.add_representer(FanEntityFeature, entityfeature_representer)
