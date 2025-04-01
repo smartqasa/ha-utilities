@@ -40,7 +40,7 @@ SERVICE_RELOAD_SCHEMA = vol.Schema({})
 
 _LOGGER = logging.getLogger(__name__)
 
-yaml = YAML()
+yaml = YAML(typ='rt')  # Changed to round-trip mode
 yaml.allow_unicode = True
 yaml.default_flow_style = False
 
@@ -172,61 +172,70 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         scenes_file = os.path.join(hass.config.config_dir, "scenes.yaml")
         async with CAPTURE_LOCK:
             try:
+                # Load the YAML file in round-trip mode
                 async with aiofiles.open(scenes_file, "r", encoding="utf-8") as f:
                     content = await f.read()
                     scenes_config = yaml.load(content) or []
                     if not isinstance(scenes_config, list):
                         return {"success": False, "message": "scenes.yaml does not contain a list of scenes"}
-                    
-                    scene_config = next((scene for scene in scenes_config if scene.get("id") == scene_id), None)
-                    if not scene_config:
-                        return {"success": False, "message": f"Scene ID {scene_id} not found"}
+
+                # Find the index of the scene to update
+                scene_index = next((i for i, scene in enumerate(scenes_config) if scene.get("id") == scene_id), None)
+                if scene_index is None:
+                    return {"success": False, "message": f"Scene ID {scene_id} not found"}
+
+                # Get the existing scene configuration
+                scene_config = scenes_config[scene_index]
+                scene_entities = scene_config.get("entities", {}).copy()
+
+                # Update only the entities for this scene
+                for entidade in scene_entities:
+                    max_attempts = 3
+                    state = None
+                    for attempt in range(max_attempts):
+                        state = await hass.async_add_executor_job(hass.states.get, entidade)
+                        if state and state.state is not None:
+                            break
+                        delay = 0.2 * (2 ** attempt)
+                        if attempt == max_attempts - 1:
+                            _LOGGER.warning(f"SmartQasa: Entity {entidade} did not load after {max_attempts} attempts, retaining existing data.")
+                            break
+                        _LOGGER.warning(f"SmartQasa: Entity {entidade} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
+                        await asyncio.sleep(delay)
+
+                    if state:
+                        attributes = dict(state.attributes) if isinstance(state.attributes, dict) else {}
+                        attributes["state"] = str(state.state)
+                        attributes = {k: v for k, v in ((k, safe_item(v)) for k, v in attributes.items()) if v is not None}
+                        scene_entities[entidade] = attributes
+
+                # Update the scene's entities in the original data structure
+                scene_config["entities"] = scene_entities
+
+                # Write back the entire scenes_config with only the modified scene changed
+                temp_file = None
+                try:
+                    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', prefix='scenes_', suffix='.tmp', dir=hass.config.config_dir, delete=False) as temp_f:
+                        temp_file = temp_f.name
+                        yaml.dump(scenes_config, temp_f)
+                    os.replace(temp_file, scenes_file)
+                    return {"success": True, "message": f"Scene {entity_id} ({scene_id}) updated successfully"}
+                except YAMLError as e:
+                    _LOGGER.error(f"SmartQasa: YAML serialization failed - {e}")
+                    return {"success": False, "message": f"YAML serialization failed: {str(e)}"}
+                except Exception as e:
+                    _LOGGER.error(f"SmartQasa: Failed to update scenes.yaml: {str(e)}")
+                    return {"success": False, "message": f"Failed to update scenes.yaml: {str(e)}"}
+                finally:
+                    if temp_file and os.path.exists(temp_file):
+                        os.remove(temp_file)
+
             except FileNotFoundError:
                 _LOGGER.warning("SmartQasa: scenes.yaml not found, returning empty scene list")
                 return {"success": False, "message": "scenes.yaml not found"}
             except Exception as e:
                 _LOGGER.error(f"SmartQasa: Failed to load scenes.yaml: {str(e)}")
                 return {"success": False, "message": f"Failed to load scenes.yaml: {str(e)}"}
-
-            scene_entities = scene_config.get("entities", {}).copy()
-            for entidade in scene_entities:
-                max_attempts = 3
-                state = None
-                for attempt in range(max_attempts):
-                    state = await hass.async_add_executor_job(hass.states.get, entidade)
-                    if state and state.state is not None:
-                        break
-                    delay = 0.2 * (2 ** attempt)
-                    if attempt == max_attempts - 1:
-                        _LOGGER.warning(f"SmartQasa: Entity {entidade} did not load after {max_attempts} attempts, retaining existing data.")
-                        break
-                    _LOGGER.warning(f"SmartQasa: Entity {entidade} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
-                    await asyncio.sleep(delay)
-
-                if state:
-                    attributes = dict(state.attributes) if isinstance(state.attributes, dict) else {}
-                    attributes["state"] = str(state.state)
-                    attributes = {k: v for k, v in ((k, safe_item(v)) for k, v in attributes.items()) if v is not None}
-                    scene_entities[entidade] = attributes
-
-            scene_config["entities"] = scene_entities
-
-            temp_file = None
-            try:
-                with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', prefix='scenes_', suffix='.tmp', dir=hass.config.config_dir, delete=False) as temp_f:
-                    temp_file = temp_f.name
-                    yaml.dump(scenes_config, temp_f)
-                os.replace(temp_file, scenes_file)
-                return {"success": True, "message": f"Scene {entity_id} ({scene_id}) updated successfully"}
-            except YAMLError as e:
-                _LOGGER.error(f"SmartQasa: YAML serialization failed - {e}")
-                return {"success": False, "message": f"YAML serialization failed: {str(e)}"}
-            except Exception as e:
-                _LOGGER.error(f"SmartQasa: Failed to update scenes.yaml: {str(e)}")
-                return {"success": False, "message": f"Failed to update scenes.yaml: {str(e)}"}
-            finally:
-                if temp_file and os.path.exists(temp_file):
-                    os.remove(temp_file)
 
     async def handle_scene_reload(call: ServiceCall) -> None:
         await hass.services.async_call("scene", "reload")
