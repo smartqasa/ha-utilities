@@ -189,25 +189,25 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 scene_entities = scene_config.get("entities", {}).copy()
 
                 # Update only the entities for this scene
-                for entidade in scene_entities:
+                for entity in scene_entities:
                     max_attempts = 3
                     state = None
                     for attempt in range(max_attempts):
-                        state = await hass.async_add_executor_job(hass.states.get, entidade)
+                        state = await hass.async_add_executor_job(hass.states.get, entity)
                         if state and state.state is not None:
                             break
                         delay = 0.2 * (2 ** attempt)
                         if attempt == max_attempts - 1:
-                            _LOGGER.warning(f"SmartQasa: Entity {entidade} did not load after {max_attempts} attempts, retaining existing data.")
+                            _LOGGER.warning(f"SmartQasa: Entity {entity} did not load after {max_attempts} attempts, retaining existing data.")
                             break
-                        _LOGGER.warning(f"SmartQasa: Entity {entidade} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
+                        _LOGGER.warning(f"SmartQasa: Entity {entity} not available, retrying ({attempt + 1}/{max_attempts}) in {delay:.1f}s...")
                         await asyncio.sleep(delay)
 
                     if state:
                         attributes = dict(state.attributes) if isinstance(state.attributes, dict) else {}
                         attributes["state"] = str(state.state)
                         attributes = {k: v for k, v in ((k, safe_item(v)) for k, v in attributes.items()) if v is not None}
-                        scene_entities[entidade] = attributes
+                        scene_entities[entity] = attributes
 
                 # Update the scene's entities in the original data structure
                 scene_config["entities"] = scene_entities
