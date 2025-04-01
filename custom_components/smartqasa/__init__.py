@@ -56,7 +56,7 @@ def safe_item(item):
         return item
     except Exception as e:
         _LOGGER.warning(f"Failed to serialize item {item}: {str(e)}. Excluding from output.")
-        return None  # Will be filtered out later
+        return None
 
 def datetime_representer(dumper, data):
     return dumper.represent_scalar('tag:yaml.org,2002:timestamp', data.isoformat())
@@ -77,7 +77,6 @@ def uint8_t_representer(dumper, data):
 
 def list_representer(dumper, data):
     processed = [safe_item(x) for x in data]
-    # Filter out None values from failed serializations
     filtered = [x for x in processed if x is not None]
     return dumper.represent_sequence('tag:yaml.org,2002:seq', filtered)
 
@@ -207,7 +206,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 if state:
                     attributes = dict(state.attributes) if isinstance(state.attributes, dict) else {}
                     attributes["state"] = str(state.state)
-                    # Filter out None values from attributes after safe_item processing
                     attributes = {k: v for k, v in ((k, safe_item(v)) for k, v in attributes.items()) if v is not None}
                     scene_entities[entidade] = attributes
 
