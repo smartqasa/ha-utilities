@@ -22,7 +22,10 @@ def register_scene_services(hass: HomeAssistant):
         entity_id = call.data["entity_id"][0]
         scene_id = await retrieve_scene_id(hass, entity_id)
         entities = await get_scene_entities(hass, scene_id)
-        return list(entities.keys()) if entities else []
+        return {
+            "entities": list(entities.keys()) if entities else [],
+            "scene_id": scene_id,
+        }
 
     async def handle_update(call: ServiceCall):
         entity_id = call.data["entity_id"][0]
