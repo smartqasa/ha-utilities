@@ -1,12 +1,12 @@
 {
   "name": "SmartQasa",
-  "version": "1.0.1",
+  "version": "1.1.0",
+  "domain": "smartqasa",
   "documentation": "https://github.com/smartqasa/ha-utilities",
   "issue_tracker": "https://github.com/smartqasa/ha-utilities/issues",
   "codeowners": ["@smartqasa"],
-  "domain": "smartqasa",
-  "integration_type": "service",
   "iot_class": "assumed_state",
+  "quality_scale": "internal",
   "dependencies": ["scene"],
-  "requirements": ["aiofiles", "ruamel.yaml", "voluptuous"]
+  "requirements": []
 }

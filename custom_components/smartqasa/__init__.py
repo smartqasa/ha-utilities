@@ -3,6 +3,7 @@ import asyncio
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum, StrEnum
+import json
 import logging
 from typing import Optional
 import os
@@ -17,9 +18,15 @@ from homeassistant.components.fan import FanEntityFeature
 import homeassistant.helpers.config_validation as cv
 
 DOMAIN = "smartqasa"
+
+SERVICE_CONFIG_WRITE = "config_write"
+SERVICE_CONFIG_READ = "config_read"
+SQCONFIG_PATH = "/config/sqconfig.json"
+
 SERVICE_SCENE_GET = "scene_get"
 SERVICE_SCENE_RELOAD = "scene_reload"
 SERVICE_SCENE_UPDATE = "scene_update"
+
 CAPTURE_LOCK = asyncio.Lock()
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -43,6 +50,49 @@ _LOGGER = logging.getLogger(__name__)
 yaml = YAML(typ='rt')  # Changed to round-trip mode
 yaml.allow_unicode = True
 yaml.default_flow_style = False
+
+async def handle_config_read(call: ServiceCall):
+    """Return the current SmartQasa config (sqconfig.json)."""
+    if not os.path.exists(SQCONFIG_PATH):
+        return {
+            "channel": "main",
+            "autoUpdate": False,
+            "missing": True
+        }
+
+    try:
+        async with aiofiles.open(SQCONFIG_PATH, "r", encoding="utf-8") as f:
+            content = await f.read()
+            return json.loads(content)
+    except Exception as e:
+        _LOGGER.error(f"SmartQasa: Failed to read sqconfig.json: {e}")
+        return {"error": str(e)}
+
+async def handle_config_write(call: ServiceCall):
+    """Write the SmartQasa config file (sqconfig.json)."""
+    channel = call.data.get("channel", "main")
+    auto_update = call.data.get("autoUpdate", False)
+
+    cfg = {
+        "channel": channel,
+        "autoUpdate": bool(auto_update)
+    }
+
+    try:
+        # Write atomically with temp file
+        temp_path = SQCONFIG_PATH + ".tmp"
+        async with aiofiles.open(temp_path, "w", encoding="utf-8") as f:
+            await f.write(json.dumps(cfg, indent=2))
+
+        os.replace(temp_path, SQCONFIG_PATH)
+        return {"success": True, "config": cfg}
+
+    except Exception as e:
+        _LOGGER.error(f"SmartQasa: Failed to write sqconfig.json: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 def safe_item(item):
     """Recursively process an item, excluding it if serialization fails."""
@@ -240,6 +290,24 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     async def handle_scene_reload(call: ServiceCall) -> None:
         await hass.services.async_call("scene", "reload")
         _LOGGER.debug("SmartQasa: Scene reload triggered")
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CONFIG_READ,
+        handle_config_read,
+        schema=vol.Schema({}),
+        supports_response="only",
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CONFIG_WRITE,
+        handle_config_write,
+        schema=vol.Schema({
+            vol.Required("channel"): cv.string,
+            vol.Required("autoUpdate"): cv.boolean,
+        }),
+        supports_response="only",
+    )
 
     hass.services.async_register(
         DOMAIN,

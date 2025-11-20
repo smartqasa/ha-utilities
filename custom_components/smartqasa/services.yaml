@@ -1,3 +1,78 @@
+config_read:
+  name: Read SmartQasa Config
+  description: Reads /config/sqconfig.json and returns the saved channel + autoUpdate flag.
+  response:
+    description: Configuration values from sqconfig.json
+    optional: false
+    schema:
+      type: object
+      properties:
+        channel:
+          type: string
+          example: "main"
+        autoUpdate:
+          type: boolean
+          example: false
+        missing:
+          type: boolean
+          example: false
+
+config_write:
+  name: Write SmartQasa Config
+  description: Writes values to /config/sqconfig.json (channel & autoUpdate).
+  fields:
+    channel:
+      name: Channel
+      description: Choose whether this system uses 'main' or 'beta' update channel.
+      required: true
+      example: "beta"
+      selector:
+        select:
+          options:
+            - main
+            - beta
+    autoUpdate:
+      name: Auto Update
+      description: Enables or disables automatic SmartQasa updating.
+      required: true
+      selector:
+        boolean: {}
+  response:
+    description: Result of the write operation
+    optional: false
+    schema:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        config:
+          type: object
+          example:
+            channel: "beta"
+            autoUpdate: true
+
+scene_get:
+  name: Get Scene
+  description: Retrieves entity IDs stored in a given scene.
+  target:
+    entity:
+      domain: scene
+  response:
+    optional: false
+    description: Returns entities stored in the requested scene.
+    schema:
+      type: object
+      properties:
+        entities:
+          type: array
+          items:
+            type: string
+            example: "light.kitchen_lights"
+
+
+
+
 scene_get:
   name: Get Scene
   description: Retrieves a list of entity IDs for a given scene entity.
