@@ -5,7 +5,7 @@ import os
 from .const import (
     SQCONFIG_PATH,
     DEFAULT_CHANNEL,
-    DEFAULT_AUTOUPDATE,
+    DEFAULT_AUTO_UPDATE,
 )
 
 
@@ -15,7 +15,7 @@ async def read_sqconfig() -> dict:
     if not os.path.exists(SQCONFIG_PATH):
         return {
             "channel": DEFAULT_CHANNEL,
-            "autoUpdate": DEFAULT_AUTOUPDATE,
+            "auto_update": DEFAULT_AUTO_UPDATE,
             "missing": True
         }
 
@@ -27,12 +27,12 @@ async def read_sqconfig() -> dict:
         return {"error": f"Failed to read config: {e}"}
 
 
-async def write_sqconfig(channel: str, autoUpdate: bool) -> dict:
+async def write_sqconfig(channel: str, auto_update: bool) -> dict:
     """Write SmartQasa sqconfig.json atomically."""
 
     cfg = {
         "channel": channel,
-        "autoUpdate": bool(autoUpdate),
+        "auto_update": bool(auto_update),
     }
 
     try:

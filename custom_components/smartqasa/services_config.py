@@ -19,7 +19,7 @@ def register_config_services(hass: HomeAssistant):
     async def handle_write(call: ServiceCall):
         return await write_sqconfig(
             channel=call.data["channel"],
-            autoUpdate=call.data["autoUpdate"],
+            auto_update=call.data["auto_update"],
         )
 
     hass.services.async_register(
@@ -36,7 +36,7 @@ def register_config_services(hass: HomeAssistant):
         handle_write,
         schema=vol.Schema({
             vol.Required("channel"): cv.string,
-            vol.Required("autoUpdate"): cv.boolean,
+            vol.Required("auto_update"): cv.boolean,
         }),
         supports_response="only",
     )

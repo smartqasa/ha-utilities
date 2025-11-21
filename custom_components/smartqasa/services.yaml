@@ -1,6 +1,6 @@
 config_read:
   name: Read SmartQasa Config
-  description: Reads /config/sqconfig.json and returns the saved channel + autoUpdate flag.
+  description: Reads /config/sqconfig.json and returns the saved channel + auto_update flag.
   response:
     description: Configuration values from sqconfig.json
     optional: false
@@ -10,7 +10,7 @@ config_read:
         channel:
           type: string
           example: "main"
-        autoUpdate:
+        auto_update:
           type: boolean
           example: false
         missing:
@@ -19,7 +19,7 @@ config_read:
 
 config_write:
   name: Write SmartQasa Config
-  description: Writes values to /config/sqconfig.json (channel & autoUpdate).
+  description: Writes values to /config/sqconfig.json (channel & auto_update).
   fields:
     channel:
       name: Channel
@@ -31,7 +31,7 @@ config_write:
           options:
             - main
             - beta
-    autoUpdate:
+    auto_update:
       name: Auto Update
       description: Enables or disables automatic SmartQasa updating.
       required: true
@@ -50,7 +50,7 @@ config_write:
           type: object
           example:
             channel: "beta"
-            autoUpdate: true
+            auto_update: true
 
 scene_get:
   name: Get Scene

@@ -14,4 +14,4 @@ SERVICE_SCENE_RELOAD = "scene_reload"
 
 # Defaults
 DEFAULT_CHANNEL = "main"
-DEFAULT_AUTOUPDATE = False
+DEFAULT_AUTO_UPDATE = True
