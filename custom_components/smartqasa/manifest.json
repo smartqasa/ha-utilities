@@ -8,5 +8,5 @@
   "iot_class": "assumed_state",
   "quality_scale": "internal",
   "dependencies": ["scene"],
-  "requirements": []
+  "requirements": ["ruamel.yaml==0.17.40"]
 }
