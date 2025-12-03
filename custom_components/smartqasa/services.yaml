@@ -1,6 +1,8 @@
 config_read:
   name: Read SmartQasa Config
-  description: Reads /config/sqconfig.json and returns the saved channel + auto_update flag.
+  description:
+    Reads /config/sqconfig.json and returns the saved channel + auto_update
+    flag.
   response:
     description: Configuration values from sqconfig.json
     optional: false
@@ -9,7 +11,7 @@ config_read:
       properties:
         channel:
           type: string
-          example: "main"
+          example: 'main'
         auto_update:
           type: boolean
           example: false
@@ -23,9 +25,10 @@ config_write:
   fields:
     channel:
       name: Channel
-      description: Choose whether this system uses 'main' or 'beta' update channel.
+      description:
+        Choose whether this system uses 'main' or 'beta' update channel.
       required: true
-      example: "beta"
+      example: 'beta'
       selector:
         select:
           options:
@@ -49,7 +52,7 @@ config_write:
         config:
           type: object
           example:
-            channel: "beta"
+            channel: 'beta'
             auto_update: true
 
 scene_get:
@@ -68,33 +71,19 @@ scene_get:
           type: array
           items:
             type: string
-            example: "light.kitchen_lights"
-
-
-
-
-scene_get:
-  name: Get Scene
-  description: Retrieves a list of entity IDs for a given scene entity.
-  target:
-    entity:
-      domain: scene
-  response:
-    optional: false
-    schema:
-      type: array
-      items:
-        type: string
-        example: "light.kitchen_lights"
+            example: 'light.kitchen_lights'
 
 scene_reload:
   name: Reload Scenes
-  description: Reloads all scenes from scenes.yaml without requiring a specific entity.
+  description:
+    Reloads all scenes from scenes.yaml without requiring a specific entity.
   fields: {}
 
 scene_update:
   name: Update Scene
-  description: Updates the states and attributes of a scene's entities and persists them to scenes.yaml.
+  description:
+    Updates the states and attributes of a scene's entities and persists them to
+    scenes.yaml.
   target:
     entity:
       domain: scene
