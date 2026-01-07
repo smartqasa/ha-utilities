@@ -3,7 +3,7 @@ import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 from typing import cast
 
-from custom_components.scene_plus.services_config import SupportsResponse
+from custom_components.smartqasa.services_config import SupportsResponse
 
 from .const import (
     DOMAIN,
